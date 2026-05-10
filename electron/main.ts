@@ -1,0 +1,214 @@
+import { app, BrowserWindow, dialog, shell } from 'electron'
+import { createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+import os from 'node:os'
+import { ipcMain } from 'electron'
+import { SearchAggregator } from './core/search.js'
+import { DownloadService } from './core/downloader.js'
+import { ManifestService } from './core/manifest.js'
+import { CacheService } from './core/cache.js'
+import { config } from './core/config.js'
+import { getStorageUsage } from './utils/storage.js'
+import { formatBytes } from './utils/format.js'
+
+const require = createRequire(import.meta.url)
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const aggregator = new SearchAggregator()
+const manifestService = new ManifestService()
+
+// The built directory structure
+//
+// ├─┬─┬ dist
+// │ │ └── index.html
+// │ │
+// │ ├─┬ dist-electron
+// │ │ ├── main.js
+// │ │ └── preload.mjs
+// │
+process.env.APP_ROOT = path.join(__dirname, '..')
+
+// 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
+export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
+export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
+export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
+
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
+
+let win: BrowserWindow | null
+
+function createWindow() {
+  win = new BrowserWindow({
+    icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    // Frameless window so we can implement a custom window bar in the renderer
+    frame: false,
+    // On macOS keep a hidden inset titlebar so traffic-light buttons remain available
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : undefined,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.mjs'),
+    },
+  })
+
+  // Test active push message to Renderer-process.
+  win.webContents.on('did-finish-load', () => {
+    win?.webContents.send('main-process-message', (new Date).toLocaleString())
+  })
+
+  // Notify renderer when maximize/unmaximize happens so UI can update
+  win.on('maximize', () => {
+    win?.webContents.send('window-maximize-changed', true)
+  })
+
+  win.on('unmaximize', () => {
+    win?.webContents.send('window-maximize-changed', false)
+  })
+
+  if (VITE_DEV_SERVER_URL) {
+    win.loadURL(VITE_DEV_SERVER_URL)
+  } else {
+    // win.loadFile('dist/index.html')
+    win.loadFile(path.join(RENDERER_DIST, 'index.html'))
+  }
+}
+
+// Quit when all windows are closed, except on macOS. There, it's common
+// for applications and their menu bar to stay active until the user quits
+// explicitly with Cmd + Q.
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit()
+    win = null
+  }
+})
+
+app.on('activate', () => {
+  // On OS X it's common to re-create a window in the app when the
+  // dock icon is clicked and there are no other windows open.
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow()
+  }
+})
+
+app.whenReady().then(async () => {
+  await aggregator.initialise()
+  createWindow()
+})
+
+ipcMain.handle('search', async (_event, query: string) => {
+  return await aggregator.search(query, {
+    refresh: Boolean(config.get('always_refresh_sources'))
+  })
+})
+
+ipcMain.handle('get-config', async () => {
+  return {
+    downloadPath: config.get('default_download_path'),
+    favoriteSource: config.get('favorite_source'),
+    alwaysRefresh: Boolean(config.get('always_refresh_sources')),
+  }
+})
+
+ipcMain.handle('set-config', async (_event, key: string, value: any) => {
+  config.set(key, value)
+  return true
+})
+
+ipcMain.handle('get-sources', async () => {
+  await aggregator.ensureAdaptersLoaded()
+  return aggregator.getSourceOptions()
+})
+
+ipcMain.handle('pick-folder', async () => {
+  const winRef = BrowserWindow.getFocusedWindow() || win
+  const res = await dialog.showOpenDialog(winRef || undefined, {
+    properties: ['openDirectory'],
+  })
+  if (res.canceled || !res.filePaths || res.filePaths.length === 0) return null
+  return res.filePaths[0]
+})
+
+ipcMain.handle('open-folder', async (_event, folderPath: string) => {
+  try {
+    return await shell.openPath(folderPath)
+  } catch (e) {
+    return String(e)
+  }
+})
+
+ipcMain.handle('get-storage-usage', async () => {
+  try {
+    const cacheDir = path.join(os.homedir(), '.ncea-cli-cache')
+    const dataDir = path.join(os.homedir(), '.ncea-cli')
+    const usage = getStorageUsage(cacheDir, dataDir)
+    return {
+      cache: formatBytes(usage.cacheBytes),
+      manifest: formatBytes(usage.manifestBytes),
+      total: formatBytes(usage.totalBytes),
+    }
+  } catch (e) {
+    return null
+  }
+})
+
+ipcMain.handle('clear-cache', async () => {
+  try {
+    CacheService.clear()
+    return true
+  } catch (e) {
+    return String(e)
+  }
+})
+
+ipcMain.handle('clear-manifest', async () => {
+  try {
+    manifestService.clear()
+    return true
+  } catch (e) {
+    return String(e)
+  }
+})
+
+ipcMain.handle('get-papers', async (_event, standardId: string) => {
+  const papers = await aggregator.searchExactByStandardId(standardId, {
+    refresh: Boolean(config.get('always_refresh_sources'))
+  })
+  return aggregator.groupResults(papers)
+})
+
+ipcMain.handle('download', async (_event, paper: any, downloadPath: string) => {
+  const result = await DownloadService.downloadInfo(paper, downloadPath)
+  manifestService.recordDownloadOutcome(paper, result === true)
+  return result
+})
+
+// Window control IPC handlers
+ipcMain.handle('window-minimize', async () => {
+  const w = BrowserWindow.getFocusedWindow() || win
+  w?.minimize()
+  return true
+})
+
+ipcMain.handle('window-toggle-maximize', async () => {
+  const w = BrowserWindow.getFocusedWindow() || win
+  if (!w) return false
+  if (w.isMaximized()) w.unmaximize()
+  else w.maximize()
+  return true
+})
+
+ipcMain.handle('window-is-maximized', async () => {
+  const w = BrowserWindow.getFocusedWindow() || win
+  return Boolean(w?.isMaximized())
+})
+
+ipcMain.handle('window-close', async () => {
+  const w = BrowserWindow.getFocusedWindow() || win
+  w?.close()
+  return true
+})
+
+ipcMain.handle("ncea:getStandard", async (_, standardId) => {
+  const papers = await aggregator.searchExactByStandardId(standardId);
+  const grouped = aggregator.groupResults(papers);
+  return grouped.find(g => g.standardId === standardId) ?? null;
+});
