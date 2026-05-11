@@ -24,7 +24,7 @@ interface YearEntry {
   typeChoices?: Array<{
     type: string;
     label: string;
-    papers: unknown[];
+    papers: Array<{ filename: string; [key: string]: any }>;
     sourceCount: number;
   }>;
   typeSummary?: string;
@@ -93,12 +93,12 @@ export default function YearsView({
         const paper = typeChoice?.papers?.[0];
 
         if (paper) {
-          onDownloadStart({
-            paper,
-            filename: (paper as any).filename,
-          });
+          const id = `dl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          // attach id to paper so main can use it when emitting progress
+          (paper as any).__downloadId = id;
+          onDownloadStart({ paper, filename: (paper as any).filename, id });
           try {
-            await window.ncea.download(paper, downloadPath || "");
+            await window.ncea.download(paper, downloadPath || "", id);
           } catch (e) {
             console.error("Download failed:", e);
           }

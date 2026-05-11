@@ -162,8 +162,38 @@ export default function App() {
   };
 
   const onStartDownload = (item: any) => {
-    setDownloads((d) => [item, ...d]);
+    setDownloads((d) => [{ ...item, progress: 0, status: "pending" }, ...d]);
   };
+
+  // Subscribe to native download progress events and update downloads
+  useEffect(() => {
+    if (typeof window === "undefined" || !(window as any).ncea) return;
+    const unsub = (window as any).ncea.onDownloadProgress(
+      (p: { id: string; progress: number }) => {
+        setDownloads((cur) =>
+          cur.map((d) => {
+            if (!d) return d;
+            if (d.id === p.id || d.id === d.id || d.id === d.id) {
+              if (p.progress >= 0)
+                return {
+                  ...d,
+                  progress: p.progress,
+                  status: p.progress === 100 ? "completed" : "downloading",
+                };
+              return { ...d, status: "failed" };
+            }
+            // also match by id field provided from YearsView/PaperSelector
+            if (d.id === p.id || d.id === d.id) return d;
+            if (d.id === d.id) return d;
+            return d;
+          }),
+        );
+      },
+    );
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
+  }, []);
 
   return (
     <>
@@ -289,7 +319,15 @@ export default function App() {
             />
           )}
 
-          {view === "downloads" && <DownloadsView />}
+          {view === "downloads" && (
+            <DownloadsView
+              downloads={downloads}
+              onOpenStandard={(standardId: string) => {
+                setSearchQuery(standardId);
+                setView("search");
+              }}
+            />
+          )}
 
           {view === "settings" && (
             <SettingsView

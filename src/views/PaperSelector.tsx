@@ -45,7 +45,11 @@ export default function PaperSelector({
 }: {
   standard: SelectorStandard | null;
   onClose: () => void;
-  onDownloadStart: (item: { paper: DownloadPaper; filename: string }) => void;
+  onDownloadStart: (item: {
+    paper: DownloadPaper;
+    filename: string;
+    id: string;
+  }) => void;
   downloadPath: string;
 }) {
   const [groups, setGroups] = useState<PaperGroup[]>([]);
@@ -108,8 +112,10 @@ export default function PaperSelector({
     for (const row of chosenRows) {
       const paper = row.typeChoice?.papers?.[0];
       if (paper) {
-        onDownloadStart({ paper, filename: paper.filename });
-        window.ncea.download(paper, downloadPath || "").catch(() => {});
+        const id = `dl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        (paper as any).__downloadId = id;
+        onDownloadStart({ paper, filename: paper.filename, id });
+        window.ncea.download(paper, downloadPath || "", id).catch(() => {});
       }
     }
 

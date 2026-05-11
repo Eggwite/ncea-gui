@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import axios from "axios";
 import Fuse from "fuse.js";
 import { isSea, getAsset } from "node:sea";
 
@@ -42,6 +43,9 @@ export class SearchAggregator {
     this.seedStandardsCache = null;
     this.seedSubjectVocabularyCache = null;
     this.progressCallback = null;
+    // Track adapters that are down; health check runs once per process lifetime
+    this.downAdapters = new Set();
+    this.healthCheckRun = false;
   }
 
   async initialise() {
@@ -72,6 +76,35 @@ export class SearchAggregator {
       });
 
     return this.adapterLoadPromise;
+  }
+
+  /**
+   * One-time health check for all adapters. Runs once per process lifetime.
+   * Adapters that fail to respond quickly (likely down) are marked for skipping.
+   * This prevents timeout hangs when an adapter's source is unavailable.
+   */
+  async runHealthChecks() {
+    if (this.healthCheckRun) return;
+    this.healthCheckRun = true;
+
+    const checks = this.adapters.map(async (adapter) => {
+      // Quirky adapter: quick HEAD check to its base URL
+      if (adapter.name === "QuirkyAdapter") {
+        try {
+          await axios.head("https://nzqa-pdf.quirky.codes/", {
+            timeout: 5000,
+          });
+        } catch {
+          this.downAdapters.add(adapter.name);
+        }
+      }
+    });
+
+    await Promise.allSettled(checks);
+  }
+
+  getActiveAdapters() {
+    return this.adapters.filter((a) => !this.downAdapters.has(a.name));
   }
 
   getSourceDisplayName(sourceName) {
@@ -183,6 +216,7 @@ export class SearchAggregator {
 
   async searchExactByStandardId(standardId, { refresh = false } = {}) {
     await this.ensureAdaptersLoaded();
+    await this.runHealthChecks();
     const id = normaliseStandardId(standardId);
     if (!id) return [];
 
@@ -201,14 +235,15 @@ export class SearchAggregator {
     }
 
     if (results.length === 0 || refresh) {
-      // Track progress as adapters complete
-      const adapterFetches = this.adapters.map((adapter, index) =>
+      // Track progress as adapters complete; skip any adapters that failed health check
+      const activeAdapters = this.getActiveAdapters();
+      const adapterFetches = activeAdapters.map((adapter, index) =>
         adapter.fetchByStandard(id).then(
           (result) => {
             if (this.progressCallback) {
               this.progressCallback({
                 completed: index + 1,
-                total: this.adapters.length,
+                total: activeAdapters.length,
                 adapter:
                   this.adapterMetaByName.get(adapter.sourceName)?.displayName ||
                   adapter.sourceName,
@@ -220,7 +255,7 @@ export class SearchAggregator {
             if (this.progressCallback) {
               this.progressCallback({
                 completed: index + 1,
-                total: this.adapters.length,
+                total: activeAdapters.length,
                 adapter:
                   this.adapterMetaByName.get(adapter.sourceName)?.displayName ||
                   adapter.sourceName,

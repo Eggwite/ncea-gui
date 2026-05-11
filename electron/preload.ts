@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('ncea', {
     ipcRenderer.on('papers-progress', listener)
     return () => ipcRenderer.removeListener('papers-progress', listener)
   },
-  download: (paper: any, downloadPath: string) => ipcRenderer.invoke('download', paper, downloadPath),
+  download: (paper: any, downloadPath: string, id?: string) => ipcRenderer.invoke('download', paper, downloadPath, id),
   getConfig: () => ipcRenderer.invoke('get-config'),
   setConfig: (key: string, value: any) => ipcRenderer.invoke('set-config', key, value),
   getSources: () => ipcRenderer.invoke('get-sources'),
@@ -26,7 +26,13 @@ contextBridge.exposeInMainWorld('ncea', {
   addDownload: (downloadInfo: any) => ipcRenderer.invoke('add-download', downloadInfo),
   removeDownload: (downloadId: string) => ipcRenderer.invoke('remove-download', downloadId),
   clearDownloadsHistory: () => ipcRenderer.invoke('clear-downloads-history'),
+  verifyDownloads: (paths: string[]) => ipcRenderer.invoke('verify-downloads', paths),
   resetDownloadPath: () => ipcRenderer.invoke('reset-download-path'),
+  onDownloadProgress: (cb: (progress: { id: string; progress: number }) => void) => {
+    const listener = (_: any, progress: any) => cb(progress)
+    ipcRenderer.on('download-progress', listener)
+    return () => ipcRenderer.removeListener('download-progress', listener)
+  },
   // Window controls
   minimize: () => ipcRenderer.invoke('window-minimize'),
   toggleMaximize: () => ipcRenderer.invoke('window-toggle-maximize'),

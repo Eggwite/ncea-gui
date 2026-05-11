@@ -9,6 +9,7 @@ export class DownloadService {
    * Safely download a paper. Returns true if successful, string error if failed or manual URL needed.
    */
   static async downloadInfo(paper, downloadPath) {
+  static async downloadInfo(paper, downloadPath, onProgress) {
     try {
       // 1. Preflight HEAD request
       const headRes = await axios.head(paper.url, {
@@ -81,6 +82,23 @@ export class DownloadService {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 ncea-cli/1.0", // Pretend to be a browser, added safe client marker for "polite scraping"
         },
       });
+
+      // track progress if content-length provided
+      const total = parseInt(response.headers['content-length'] || '0', 10) || 0
+      let loaded = 0
+      if (typeof onProgress === 'function') {
+        response.data.on('data', (chunk) => {
+          try {
+            loaded += chunk.length
+            if (total > 0) {
+              const pct = Math.round((loaded / total) * 100)
+              onProgress(pct)
+            } else {
+              onProgress(-1)
+            }
+          } catch (e) {}
+        })
+      }
 
       await pipeline(response.data, writeStream);
       const stats = fs.statSync(destPath);

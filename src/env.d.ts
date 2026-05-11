@@ -3,7 +3,7 @@ interface Window {
     search: (query: string) => Promise<any[]>
     getStandard: (standardId: string) => Promise<any>
     getPapers: (standardId: string) => Promise<any[]>
-    download: (paper: any, downloadPath: string) => Promise<any>
+    download: (paper: any, downloadPath: string, id?: string) => Promise<any>
     getConfig: () => Promise<{ downloadPath?: string; favoriteSource?: string; alwaysRefresh?: boolean }>
     setConfig: (key: string, value: any) => Promise<boolean>
     getSources: () => Promise<Array<{ value: string; label: string }>>
@@ -18,7 +18,9 @@ interface Window {
     addDownload: (downloadInfo: any) => Promise<boolean>
     removeDownload: (downloadId: string) => Promise<boolean>
     clearDownloadsHistory: () => Promise<boolean>
+    verifyDownloads: (paths: string[]) => Promise<Array<{ path: string; exists: boolean }>>
     resetDownloadPath: () => Promise<string>
+    onDownloadProgress: (callback: (progress: { id: string; progress: number }) => void) => () => void
     minimize: () => Promise<void>
     toggleMaximize: () => Promise<void>
     isMaximized: () => Promise<boolean>

@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, shell } from 'electron'
+import fs from 'fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
@@ -216,35 +217,50 @@ ipcMain.handle('get-papers', async (event, standardId: string) => {
 ipcMain.handle('download', async (_event, paper: any, downloadPath: string) => {
   // Expand the download path if needed
   const expandedPath = expandPath(downloadPath)
-  const result = await DownloadService.downloadInfo(paper, expandedPath)
-  manifestService.recordDownloadOutcome(paper, result.success === true || result === true)
-  
-  // Record successful downloads in history
-  if (result.success === true || result === true) {
-    const downloadInfo = result.success === true ? {
-      title: paper.title || paper.filename || 'Unknown',
-      standardId: paper.standardId || '',
-      fileName: result.fileName || paper.filename || '',
-      filePath: result.filePath || '',
-      source: paper.sourceName || '',
-      downloadedAt: Date.now(),
-      size: result.size || 0,
-      status: 'completed',
-    } : {
-      title: paper.title || paper.filename || 'Unknown',
-      standardId: paper.standardId || '',
-      fileName: paper.filename || '',
-      filePath: expandedPath,
-      source: paper.sourceName || '',
-      downloadedAt: Date.now(),
-      size: 0,
-      status: 'completed',
+  try {
+    const result = await DownloadService.downloadInfo(paper, expandedPath, (progress) => {
+      try {
+        // send progress updates back to renderer
+        _event.sender.send('download-progress', { id: paper.__downloadId || paper.id || paper.filename, progress })
+      } catch (e) {}
+    })
+
+    manifestService.recordDownloadOutcome(paper, result.success === true || result === true)
+
+    // Record successful downloads in history
+    if (result.success === true || result === true) {
+      const downloadInfo = result.success === true ? {
+        id: paper.__downloadId || `download-${Date.now()}`,
+        title: paper.title || paper.filename || 'Unknown',
+        standardId: paper.standardId || '',
+        fileName: result.fileName || paper.filename || '',
+        filePath: result.filePath || '',
+        source: paper.sourceName || '',
+        downloadedAt: Date.now(),
+        size: result.size || 0,
+        status: 'completed',
+      } : {
+        id: paper.__downloadId || `download-${Date.now()}`,
+        title: paper.title || paper.filename || 'Unknown',
+        standardId: paper.standardId || '',
+        fileName: paper.filename || '',
+        filePath: expandedPath,
+        source: paper.sourceName || '',
+        downloadedAt: Date.now(),
+        size: 0,
+        status: 'completed',
+      }
+
+      addDownloadToHistory(downloadInfo)
     }
-    
-    addDownloadToHistory(downloadInfo)
+
+    // final progress 100
+    try { _event.sender.send('download-progress', { id: paper.__downloadId || paper.id || paper.filename, progress: 100 }) } catch (e) {}
+    return result
+  } catch (e) {
+    try { _event.sender.send('download-progress', { id: paper.__downloadId || paper.id || paper.filename, progress: -1 }) } catch (err) {}
+    throw e
   }
-  
-  return result
 })
 
 // Downloads management handlers
@@ -262,6 +278,15 @@ ipcMain.handle('remove-download', async (_event, downloadId: string) => {
 
 ipcMain.handle('clear-downloads-history', async () => {
   return clearDownloadsHistory()
+})
+
+ipcMain.handle('verify-downloads', async (_event, paths: string[]) => {
+  try {
+    const results = (paths || []).map((p) => ({ path: p, exists: fs.existsSync(String(p || '')) }))
+    return results
+  } catch (e) {
+    return []
+  }
 })
 
 ipcMain.handle('reset-download-path', async () => {
