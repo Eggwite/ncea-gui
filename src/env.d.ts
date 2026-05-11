@@ -1,6 +1,7 @@
 interface Window {
   ncea: {
     search: (query: string) => Promise<any[]>
+    getStandard: (standardId: string) => Promise<any>
     getPapers: (standardId: string) => Promise<any[]>
     download: (paper: any, downloadPath: string) => Promise<any>
     getConfig: () => Promise<{ downloadPath?: string; favoriteSource?: string; alwaysRefresh?: boolean }>
@@ -11,5 +12,16 @@ interface Window {
     getStorageUsage: () => Promise<{ cache: string; manifest: string; total: string } | null>
     clearCache: () => Promise<any>
     clearManifest: () => Promise<any>
+    // Downloads management
+    getDownloadsHistory: () => Promise<any[]>
+    addDownload: (downloadInfo: any) => Promise<boolean>
+    removeDownload: (downloadId: string) => Promise<boolean>
+    clearDownloadsHistory: () => Promise<boolean>
+    resetDownloadPath: () => Promise<string>
+    minimize: () => Promise<void>
+    toggleMaximize: () => Promise<void>
+    isMaximized: () => Promise<boolean>
+    close: () => Promise<void>
+    onMaximizeChanged: (callback: (isMaximized: boolean) => void) => () => void
   }
 }

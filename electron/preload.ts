@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld('ncea', {
   getStorageUsage: () => ipcRenderer.invoke('get-storage-usage'),
   clearCache: () => ipcRenderer.invoke('clear-cache'),
   clearManifest: () => ipcRenderer.invoke('clear-manifest'),
+  // Downloads management
+  getDownloadsHistory: () => ipcRenderer.invoke('get-downloads-history'),
+  addDownload: (downloadInfo: any) => ipcRenderer.invoke('add-download', downloadInfo),
+  removeDownload: (downloadId: string) => ipcRenderer.invoke('remove-download', downloadId),
+  clearDownloadsHistory: () => ipcRenderer.invoke('clear-downloads-history'),
+  resetDownloadPath: () => ipcRenderer.invoke('reset-download-path'),
   // Window controls
   minimize: () => ipcRenderer.invoke('window-minimize'),
   toggleMaximize: () => ipcRenderer.invoke('window-toggle-maximize'),

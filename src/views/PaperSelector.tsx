@@ -15,10 +15,12 @@ export default function PaperSelector({
   standard,
   onClose,
   onDownloadStart,
+  downloadPath,
 }: {
   standard: any;
   onClose: () => void;
   onDownloadStart: (item: any) => void;
+  downloadPath: string;
 }) {
   const [groups, setGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -43,10 +45,6 @@ export default function PaperSelector({
   const doDownload = async () => {
     const chosen = Object.keys(selection).filter((k) => selection[k]);
     if (chosen.length === 0) return;
-    const cfg = await window.ncea
-      .getConfig()
-      .catch(() => ({ downloadPath: undefined }));
-    const path = cfg?.downloadPath || "";
     // For MVP, assume group entries contain papersByType
     for (const key of chosen) {
       const [gIndex, tIndex] = key.split(":").map(Number);
@@ -55,7 +53,7 @@ export default function PaperSelector({
       const paper = type?.papers?.[0];
       if (paper) {
         onDownloadStart({ paper, filename: paper.filename });
-        window.ncea.download(paper, path).catch(() => {});
+        window.ncea.download(paper, downloadPath || "").catch(() => {});
       }
     }
     onClose();

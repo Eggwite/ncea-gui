@@ -1,7 +1,15 @@
-import React, { useEffect, useState } from "react";
-import { Input } from "../components/ui/input";
-import { Button } from "../components/ui/button";
-import { Dialog } from "../components/ui/dialog";
+import { useEffect, useState } from "react";
+import { Input } from "@/components/ui/Input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
+  InputGroupTextarea,
+} from "@/components/ui/input-group";
+import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/dialog";
 import { Checkbox } from "../components/ui/checkbox";
 import {
   Select,
@@ -16,11 +24,32 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../components/ui/card";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Download, Package, Trash2 } from "lucide-react";
+} from "@/components/ui/Card";
+import { FieldLabel } from "@/components/ui/field";
+import {
+  Download,
+  FolderInput,
+  Package,
+  RotateCcw,
+  SearchIcon,
+  Trash2,
+} from "lucide-react";
+import { AppConfig } from "@/hooks/useAppConfig";
 
-export default function SettingsView({ onClose }: { onClose: () => void }) {
+interface SettingsViewProps {
+  onClose: () => void;
+  config: AppConfig;
+  onConfigUpdate: (
+    key: keyof AppConfig,
+    value: string | boolean,
+  ) => Promise<void>;
+}
+
+export default function SettingsView({
+  onClose,
+  config,
+  onConfigUpdate,
+}: SettingsViewProps) {
   const [downloadPath, setDownloadPath] = useState("");
   const [sources, setSources] = useState<
     Array<{ value: string; label: string }>
@@ -34,14 +63,10 @@ export default function SettingsView({ onClose }: { onClose: () => void }) {
   } | null>(null);
 
   useEffect(() => {
-    window.ncea
-      .getConfig()
-      .then((cfg) => {
-        setDownloadPath(cfg.downloadPath || "");
-        setFavorite(cfg.favoriteSource || "__default__");
-        setAlwaysRefresh(Boolean(cfg.alwaysRefresh));
-      })
-      .catch(() => {});
+    // Initialize from parent config
+    setDownloadPath(config.downloadPath || "");
+    setFavorite(config.favoriteSource || "__default__");
+    setAlwaysRefresh(Boolean(config.alwaysRefresh));
     window.ncea
       .getSources()
       .then((s) => setSources(s || []))
@@ -50,21 +75,22 @@ export default function SettingsView({ onClose }: { onClose: () => void }) {
       .getStorageUsage()
       .then((s) => setStorage(s))
       .catch(() => {});
-  }, []);
+  }, [config]);
 
   const pickFolder = async () => {
     const p = await window.ncea.pickFolder();
-    if (p) setDownloadPath(p);
+    if (p) {
+      setDownloadPath(p);
+      onConfigUpdate("downloadPath", p);
+    }
   };
 
-  const save = async () => {
-    await window.ncea.setConfig("default_download_path", downloadPath);
-    await window.ncea.setConfig(
-      "favorite_source",
-      favorite === "__default__" ? "" : favorite,
-    );
-    await window.ncea.setConfig("always_refresh_sources", alwaysRefresh);
-    onClose();
+  const resetDownloadPath = async () => {
+    const defaultPath = await window.ncea.resetDownloadPath();
+    if (defaultPath) {
+      setDownloadPath(defaultPath);
+      onConfigUpdate("downloadPath", defaultPath);
+    }
   };
 
   const clearCache = async () => {
@@ -80,6 +106,7 @@ export default function SettingsView({ onClose }: { onClose: () => void }) {
   };
 
   return (
+    //@ts-expect-error onClose is required but not typed in DialogProps
     <Dialog open onClose={onClose}>
       <div className="flex items-center justify-center min-h-screen p-4">
         <div className="max-w-2xl w-full">
@@ -112,12 +139,25 @@ export default function SettingsView({ onClose }: { onClose: () => void }) {
                     Download Folder
                   </FieldLabel>
                   <div className="flex gap-2">
-                    <Input
-                      value={downloadPath}
-                      onChange={(e) => setDownloadPath(e.target?.value || e)}
-                      placeholder="No folder selected"
-                      readOnly
-                    />
+                    <InputGroup>
+                      <InputGroupInput
+                        value={downloadPath} //@ts-expect-error onChange is missing in InputProps
+                        onChange={(e) => setDownloadPath(e.target?.value || e)}
+                        placeholder="No folder selected"
+                        readOnly
+                      />
+                      <InputGroupAddon>
+                        <FolderInput />
+                      </InputGroupAddon>
+                      <Button
+                        onClick={resetDownloadPath}
+                        variant="ghost"
+                        size="icon"
+                      >
+                        <RotateCcw />
+                      </Button>
+                    </InputGroup>
+
                     <Button onClick={pickFolder} variant="outline" size="sm">
                       Browse
                     </Button>
@@ -150,7 +190,16 @@ export default function SettingsView({ onClose }: { onClose: () => void }) {
                   <FieldLabel htmlFor="source-select" className="mb-2">
                     Favourite Source
                   </FieldLabel>
-                  <Select value={favorite} onValueChange={setFavorite}>
+                  <Select
+                    value={favorite}
+                    onValueChange={(value) => {
+                      setFavorite(value);
+                      onConfigUpdate(
+                        "favoriteSource",
+                        value === "__default__" ? "" : value,
+                      );
+                    }}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="(default)" />
                     </SelectTrigger>
@@ -172,9 +221,11 @@ export default function SettingsView({ onClose }: { onClose: () => void }) {
                   <Checkbox
                     id="always-refresh"
                     checked={alwaysRefresh}
-                    onCheckedChange={(checked) =>
-                      setAlwaysRefresh(checked as boolean)
-                    }
+                    onCheckedChange={(checked) => {
+                      const newValue = checked as boolean;
+                      setAlwaysRefresh(newValue);
+                      onConfigUpdate("alwaysRefresh", newValue);
+                    }}
                   />
                   <FieldLabel
                     htmlFor="always-refresh"
@@ -206,7 +257,7 @@ export default function SettingsView({ onClose }: { onClose: () => void }) {
               <CardContent>
                 <div className="flex flex-wrap gap-2 mb-3">
                   <Button
-                    variant="outline"
+                    variant="destructive"
                     size="sm"
                     onClick={clearCache}
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -214,7 +265,7 @@ export default function SettingsView({ onClose }: { onClose: () => void }) {
                     Clear Cache
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="destructive"
                     size="sm"
                     onClick={clearManifest}
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -232,14 +283,6 @@ export default function SettingsView({ onClose }: { onClose: () => void }) {
                 </p>
               </CardContent>
             </Card>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-3 mt-8">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={save}>Save Settings</Button>
           </div>
         </div>
       </div>

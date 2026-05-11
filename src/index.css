@@ -192,8 +192,6 @@ html {
 }
 
 .window-button {
-  width: 36px;
-  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -205,6 +203,6 @@ html {
 }
 
 .window-button[title="Close"]:hover {
-  background-color: rgba(220, 38, 38, 0.85);
+  background-color: rgba(210, 65, 65, 0.85);
   color: white;
 }

@@ -9,6 +9,16 @@ import { DownloadService } from './core/downloader.js'
 import { ManifestService } from './core/manifest.js'
 import { CacheService } from './core/cache.js'
 import { config } from './core/config.js'
+import {
+  getAppConfig,
+  setAppConfig,
+  resetDownloadPath,
+  getDownloadsHistory,
+  addDownloadToHistory,
+  removeDownloadFromHistory,
+  clearDownloadsHistory,
+  expandPath,
+} from './core/configManager.js'
 import { getStorageUsage } from './utils/storage.js'
 import { formatBytes } from './utils/format.js'
 
@@ -101,15 +111,12 @@ ipcMain.handle('search', async (_event, query: string) => {
 })
 
 ipcMain.handle('get-config', async () => {
-  return {
-    downloadPath: config.get('default_download_path'),
-    favoriteSource: config.get('favorite_source'),
-    alwaysRefresh: Boolean(config.get('always_refresh_sources')),
-  }
+  const cfg = getAppConfig()
+  return cfg
 })
 
 ipcMain.handle('set-config', async (_event, key: string, value: any) => {
-  config.set(key, value)
+  setAppConfig(key, value)
   return true
 })
 
@@ -176,9 +183,59 @@ ipcMain.handle('get-papers', async (_event, standardId: string) => {
 })
 
 ipcMain.handle('download', async (_event, paper: any, downloadPath: string) => {
-  const result = await DownloadService.downloadInfo(paper, downloadPath)
-  manifestService.recordDownloadOutcome(paper, result === true)
+  // Expand the download path if needed
+  const expandedPath = expandPath(downloadPath)
+  const result = await DownloadService.downloadInfo(paper, expandedPath)
+  manifestService.recordDownloadOutcome(paper, result.success === true || result === true)
+  
+  // Record successful downloads in history
+  if (result.success === true || result === true) {
+    const downloadInfo = result.success === true ? {
+      title: paper.title || paper.filename || 'Unknown',
+      standardId: paper.standardId || '',
+      fileName: result.fileName || paper.filename || '',
+      filePath: result.filePath || '',
+      source: paper.sourceName || '',
+      downloadedAt: Date.now(),
+      size: result.size || 0,
+      status: 'completed',
+    } : {
+      title: paper.title || paper.filename || 'Unknown',
+      standardId: paper.standardId || '',
+      fileName: paper.filename || '',
+      filePath: expandedPath,
+      source: paper.sourceName || '',
+      downloadedAt: Date.now(),
+      size: 0,
+      status: 'completed',
+    }
+    
+    addDownloadToHistory(downloadInfo)
+  }
+  
   return result
+})
+
+// Downloads management handlers
+ipcMain.handle('get-downloads-history', async () => {
+  return getDownloadsHistory()
+})
+
+ipcMain.handle('add-download', async (_event, downloadInfo: any) => {
+  return addDownloadToHistory(downloadInfo)
+})
+
+ipcMain.handle('remove-download', async (_event, downloadId: string) => {
+  return removeDownloadFromHistory(downloadId)
+})
+
+ipcMain.handle('clear-downloads-history', async () => {
+  return clearDownloadsHistory()
+})
+
+ipcMain.handle('reset-download-path', async () => {
+  const expanded = resetDownloadPath()
+  return expanded
 })
 
 // Window control IPC handlers

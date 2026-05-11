@@ -281,6 +281,7 @@ export class SearchAggregator {
             String(seedStandard?.title || paper.title || "").trim() ||
             `Standard ${paper.standardId}`,
           subject: normaliseSubject(paper.subject),
+          credits: seedStandard?.credits,
           entries: {},
         };
       }
@@ -619,6 +620,7 @@ export class SearchAggregator {
           level: normalisedLevel,
           title,
           subject,
+          credits: row.credits,
           matchScore,
           matchGap,
           matchConfidence,
