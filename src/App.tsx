@@ -7,6 +7,7 @@ import DownloadsView from "./views/DownloadsView";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/badge";
+
 import {
   Sun,
   Moon,
@@ -167,7 +168,18 @@ export default function App() {
   return (
     <>
       <div className="min-h-screen bg-background text-foreground">
-        <header className="sticky top-0 z-50 border-b bg-card backdrop-blur-sm window-bar">
+        <header
+          className="
+            sticky top-0 z-50
+            border-b border-white/10 dark:border-white/5
+            bg-white/60 dark:bg-zinc-900/50
+            backdrop-blur-xs
+            backdrop-saturate-100
+            shadow-[0_4px_16px_rgba(0,0,0,0.04)]
+            window-bar
+          "
+        >
+          {" "}
           <div className="flex items-center justify-between p-0.5">
             <div className="flex items-center gap-0.5">
               {downloads.length > 0 && (
@@ -250,10 +262,11 @@ export default function App() {
           </div>
         </header>
 
-        <main className="mx-auto max-w-5xl px-6 py-8">
+        <main className="mx-auto w-full max-w-4xl px-6 py-8">
           {view === "search" && (
             <SearchView
               onSelectStandard={openYearsView}
+              onNavigateToSettings={toggleSettings}
               query={searchQuery}
               onQueryChange={setSearchQuery}
               results={searchResults}
@@ -296,7 +309,7 @@ export default function App() {
           />
         )}
       </div>
-      <Toaster />
+      <Toaster richColors theme={dark ? "dark" : "light"} />{" "}
     </>
   );
 }

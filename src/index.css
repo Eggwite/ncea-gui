@@ -1,23 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@fontsource-variable/figtree";
 @import "@fontsource-variable/jetbrains-mono";
-@import "@fontsource-variable/inter";
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --background: oklch(1 0 0);
@@ -95,7 +85,7 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-  --font-sans: 'Geist Variable', sans-serif;
+  --font-sans: 'Figtree Variable', sans-serif;
 }
 
 .dark {
@@ -143,6 +133,10 @@
 
   html {
     @apply font-sans;
+  }
+
+  input::placeholder {
+    color: var(--muted-foreground) !important;
   }
 }
 

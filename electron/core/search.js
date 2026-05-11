@@ -21,8 +21,8 @@ import {
 } from "./search/tokenNormalise.js";
 import { prettifyTypeLabel } from "./search/typeLabels.js";
 
-// Keep the offline shortlist small so fuzzy ranking stays fast and focused.
-const MAX_NON_EXACT_RESULT_GROUPS = 5;
+// GUI searches can show a slightly larger shortlist without hurting ranking.
+const MAX_NON_EXACT_RESULT_GROUPS = 10;
 
 function classifySearchConfidence(score, gap) {
   // These bands separate a clear winner from a near-tie in the offline ranker.
@@ -41,6 +41,7 @@ export class SearchAggregator {
     this.standardResultsMemo = new Map();
     this.seedStandardsCache = null;
     this.seedSubjectVocabularyCache = null;
+    this.progressCallback = null;
   }
 
   async initialise() {
@@ -200,9 +201,38 @@ export class SearchAggregator {
     }
 
     if (results.length === 0 || refresh) {
-      const fromSources = await Promise.allSettled(
-        this.adapters.map((adapter) => adapter.fetchByStandard(id)),
+      // Track progress as adapters complete
+      const adapterFetches = this.adapters.map((adapter, index) =>
+        adapter.fetchByStandard(id).then(
+          (result) => {
+            if (this.progressCallback) {
+              this.progressCallback({
+                completed: index + 1,
+                total: this.adapters.length,
+                adapter:
+                  this.adapterMetaByName.get(adapter.sourceName)?.displayName ||
+                  adapter.sourceName,
+              });
+            }
+            return result;
+          },
+          (error) => {
+            if (this.progressCallback) {
+              this.progressCallback({
+                completed: index + 1,
+                total: this.adapters.length,
+                adapter:
+                  this.adapterMetaByName.get(adapter.sourceName)?.displayName ||
+                  adapter.sourceName,
+                error: true,
+              });
+            }
+            throw error;
+          },
+        ),
       );
+
+      const fromSources = await Promise.allSettled(adapterFetches);
       results = results.concat(
         fromSources
           .flatMap((result) =>

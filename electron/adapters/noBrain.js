@@ -1,14 +1,16 @@
 import axios from "axios";
+import { createRequire } from "node:module";
 import { PaperSourceAdapter } from "./index.js";
 import { CacheService } from "../core/cache.js";
 import { INDEX_CACHE_TTL_MS, PaperType } from "../core/constants.js";
 import { normaliseStandardId } from "../core/models.js";
 import { extractYear } from "../utils/index.js";
 
+const require = createRequire(import.meta.url);
 let cheerioModulePromise;
 
 async function getCheerio() {
-  cheerioModulePromise ??= import("cheerio");
+  cheerioModulePromise ??= Promise.resolve(require("cheerio"));
   return await cheerioModulePromise;
 }
 
@@ -56,13 +58,17 @@ export class NoBrainTooSmallAdapter extends PaperSourceAdapter {
     const id = normaliseStandardId(standardId);
     if (!id) return [];
 
-    const cached = await CacheService.getOrSet(
-      CACHE_KEY,
-      INDEX_CACHE_TTL_MS,
-      () => this._crawlAll(),
-    );
+    const cached = CacheService.get(CACHE_KEY, INDEX_CACHE_TTL_MS);
+    const hasRequestedStandard =
+      Array.isArray(cached) &&
+      cached.some((paper) => normaliseStandardId(paper.standardId) === id);
+    const index = hasRequestedStandard ? cached : await this._crawlAll();
 
-    return cached
+    if (Array.isArray(index) && index.length > 0) {
+      CacheService.set(CACHE_KEY, index);
+    }
+
+    return index
       .filter((paper) => normaliseStandardId(paper.standardId) === id)
       .map((paper) => this.normalisePaper(paper))
       .filter(Boolean);
@@ -92,33 +98,44 @@ export class NoBrainTooSmallAdapter extends PaperSourceAdapter {
           const cheerio = await getCheerio();
           const $ = cheerio.load(data);
 
-          let currentStandardId = null;
+          $("tr").each((_, row) => {
+            const $row = $(row);
+            const links = $row.find("a");
+            if (links.length === 0) return;
 
-          $("a").each((_, el) => {
-            const $el = $(el);
-            const text = $el.text().trim();
-            const href = $el.attr("href");
+            const standardCell = $row.find("td").first();
+            const standardLink = standardCell.find("a").first();
+            const standardLinkText = standardLink.text().trim();
+            const standardLinkHref = standardLink.attr("href") || "";
+            const standardMatch =
+              standardLinkText.match(/(?:^|\b|AS\s*)(9\d{4})(?:\b|$)/i) ||
+              standardLinkHref.match(
+                /(?:^|\/|-|_|as\s*)(9\d{4})(?:\.|\b|-|_)/i,
+              ) ||
+              standardCell.text().match(/(?:^|\b)(9\d{4})(?:\b|$)/i);
 
-            // Match either the plain five-digit standard or the AS-prefixed form.
-            const standardMatchText = text.match(
-              /(?:^|\b|AS\s*)(9\d{4})(?:\b|$)/i,
-            );
-            if (standardMatchText) {
-              currentStandardId = standardMatchText[1];
-            }
+            const currentStandardId = standardMatch?.[1] || null;
 
-            // Some pages hide the same ID in the URL path, so we check that too.
-            const standardMatchHref =
-              href && href.match(/(?:^|\/|-|_|as\s*)(9\d{4})(?:\.|\b|-|_)/i);
-            if (standardMatchHref) {
-              currentStandardId = standardMatchHref[1];
-            }
+            if (!currentStandardId) return;
 
-            if (
-              href &&
-              href.toLowerCase().endsWith(".pdf") &&
-              currentStandardId
-            ) {
+            const titleText =
+              $row.find("td").eq(1).find("p").first().text().trim() ||
+              $row
+                .find("td")
+                .eq(1)
+                .clone()
+                .find("a")
+                .remove()
+                .end()
+                .text()
+                .replace(/\s+/g, " ")
+                .trim();
+
+            links.each((__, el) => {
+              const $el = $(el);
+              const href = $el.attr("href");
+              if (!href || !href.toLowerCase().endsWith(".pdf")) return;
+
               let cleanUrl = href;
               if (cleanUrl.includes("#")) {
                 cleanUrl = cleanUrl.split("#")[0];
@@ -149,7 +166,10 @@ export class NoBrainTooSmallAdapter extends PaperSourceAdapter {
                     : hubUrl.includes("bio")
                       ? "Biology"
                       : "Science",
-                title: text.length > 5 ? text : `Standard ${currentStandardId}`,
+                title:
+                  titleText.length > 5
+                    ? titleText
+                    : `Standard ${currentStandardId}`,
                 level:
                   Number(hubUrl.match(/(?:phy|che|bio|sci)(\d)/i)?.[1]) || 0,
                 year,
@@ -159,7 +179,7 @@ export class NoBrainTooSmallAdapter extends PaperSourceAdapter {
                 filename: `${currentStandardId}_${year || "unknown"}_${type}.pdf`,
                 type,
               });
-            }
+            });
           });
         } catch (e) {
           // ignore

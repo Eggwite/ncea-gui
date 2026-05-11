@@ -1,14 +1,16 @@
 import axios from "axios";
+import { createRequire } from "node:module";
 import { PaperSourceAdapter } from "./index.js";
 import { CacheService } from "../core/cache.js";
 import { INDEX_CACHE_TTL_MS } from "../core/constants.js";
 import { normaliseStandardId } from "../core/models.js";
 import { extractYear } from "../utils/index.js";
 
+const require = createRequire(import.meta.url);
 let cheerioModulePromise;
 
 async function getCheerio() {
-  cheerioModulePromise ??= import("cheerio");
+  cheerioModulePromise ??= Promise.resolve(require("cheerio"));
   return await cheerioModulePromise;
 }
 

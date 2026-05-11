@@ -1,5 +1,4 @@
 import { app, BrowserWindow, dialog, shell } from 'electron'
-import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
@@ -22,7 +21,6 @@ import {
 import { getStorageUsage } from './utils/storage.js'
 import { formatBytes } from './utils/format.js'
 
-const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const aggregator = new SearchAggregator()
 const manifestService = new ManifestService()
@@ -50,6 +48,8 @@ let win: BrowserWindow | null
 function createWindow() {
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    width: 1080,
+    height: 720,
     // Frameless window so we can implement a custom window bar in the renderer
     frame: false,
     // On macOS keep a hidden inset titlebar so traffic-light buttons remain available
@@ -126,8 +126,11 @@ ipcMain.handle('get-sources', async () => {
 })
 
 ipcMain.handle('pick-folder', async () => {
-  const winRef = BrowserWindow.getFocusedWindow() || win
-  const res = await dialog.showOpenDialog(winRef || undefined, {
+  const focusedWindow = BrowserWindow.getFocusedWindow()
+  const dialogOwner = focusedWindow ?? win
+  if (!dialogOwner) return null
+
+  const res = await dialog.showOpenDialog(dialogOwner, {
     properties: ['openDirectory'],
   })
   if (res.canceled || !res.filePaths || res.filePaths.length === 0) return null
@@ -137,6 +140,24 @@ ipcMain.handle('pick-folder', async () => {
 ipcMain.handle('open-folder', async (_event, folderPath: string) => {
   try {
     return await shell.openPath(folderPath)
+  } catch (e) {
+    return String(e)
+  }
+})
+
+ipcMain.handle('open-cache-folder', async () => {
+  try {
+    const cacheDir = path.join(os.homedir(), '.ncea-cli-cache')
+    return await shell.openPath(cacheDir)
+  } catch (e) {
+    return String(e)
+  }
+})
+
+ipcMain.handle('open-manifest-folder', async () => {
+  try {
+    const dataDir = path.join(os.homedir(), '.ncea-cli')
+    return await shell.openPath(dataDir)
   } catch (e) {
     return String(e)
   }
@@ -175,11 +196,21 @@ ipcMain.handle('clear-manifest', async () => {
   }
 })
 
-ipcMain.handle('get-papers', async (_event, standardId: string) => {
-  const papers = await aggregator.searchExactByStandardId(standardId, {
-    refresh: Boolean(config.get('always_refresh_sources'))
-  })
-  return aggregator.groupResults(papers)
+ipcMain.handle('get-papers', async (event, standardId: string) => {
+  // Set up progress callback to send updates to renderer
+  aggregator.progressCallback = (progress) => {
+    event.sender.send('papers-progress', progress)
+  }
+  
+  try {
+    const papers = await aggregator.searchExactByStandardId(standardId, {
+      refresh: Boolean(config.get('always_refresh_sources'))
+    })
+    return aggregator.groupResults(papers)
+  } finally {
+    // Clear callback when done
+    aggregator.progressCallback = null
+  }
 })
 
 ipcMain.handle('download', async (_event, paper: any, downloadPath: string) => {

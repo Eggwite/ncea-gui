@@ -5,12 +5,19 @@ contextBridge.exposeInMainWorld('ncea', {
   getStandard: (standardId) => ipcRenderer.invoke("ncea:getStandard", standardId),
 
   getPapers: (standardId: string) => ipcRenderer.invoke('get-papers', standardId),
+  onPapersProgress: (cb: (progress: any) => void) => {
+    const listener = (_: any, progress: any) => cb(progress)
+    ipcRenderer.on('papers-progress', listener)
+    return () => ipcRenderer.removeListener('papers-progress', listener)
+  },
   download: (paper: any, downloadPath: string) => ipcRenderer.invoke('download', paper, downloadPath),
   getConfig: () => ipcRenderer.invoke('get-config'),
   setConfig: (key: string, value: any) => ipcRenderer.invoke('set-config', key, value),
   getSources: () => ipcRenderer.invoke('get-sources'),
   pickFolder: () => ipcRenderer.invoke('pick-folder'),
   openFolder: (path: string) => ipcRenderer.invoke('open-folder', path),
+  openCacheFolder: () => ipcRenderer.invoke('open-cache-folder'),
+  openManifestFolder: () => ipcRenderer.invoke('open-manifest-folder'),
   getStorageUsage: () => ipcRenderer.invoke('get-storage-usage'),
   clearCache: () => ipcRenderer.invoke('clear-cache'),
   clearManifest: () => ipcRenderer.invoke('clear-manifest'),

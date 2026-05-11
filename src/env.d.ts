@@ -9,10 +9,11 @@ interface Window {
     getSources: () => Promise<Array<{ value: string; label: string }>>
     pickFolder: () => Promise<string | null>
     openFolder: (path: string) => Promise<any>
+    openCacheFolder: () => Promise<any>
+    openManifestFolder: () => Promise<any>
     getStorageUsage: () => Promise<{ cache: string; manifest: string; total: string } | null>
     clearCache: () => Promise<any>
     clearManifest: () => Promise<any>
-    // Downloads management
     getDownloadsHistory: () => Promise<any[]>
     addDownload: (downloadInfo: any) => Promise<boolean>
     removeDownload: (downloadId: string) => Promise<boolean>
@@ -23,5 +24,6 @@ interface Window {
     isMaximized: () => Promise<boolean>
     close: () => Promise<void>
     onMaximizeChanged: (callback: (isMaximized: boolean) => void) => () => void
+    onPapersProgress: (callback: (progress: { completed: number; total: number; adapter?: string; error?: boolean }) => void) => () => void
   }
 }
