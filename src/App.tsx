@@ -168,7 +168,7 @@ export default function App() {
     <>
       <div className="min-h-screen bg-background text-foreground">
         <header className="sticky top-0 z-50 border-b bg-card backdrop-blur-sm window-bar">
-          <div className="flex items-center justify-between px-2">
+          <div className="flex items-center justify-between p-0.5">
             <div className="flex items-center gap-0.5">
               {downloads.length > 0 && (
                 <Badge variant="secondary" className="px-2 py-1 no-drag">
