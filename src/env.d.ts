@@ -29,3 +29,4 @@ interface Window {
     onPapersProgress: (callback: (progress: { completed: number; total: number; adapter?: string; error?: boolean }) => void) => () => void
   }
 }
+declare const __APP_VERSION__: string

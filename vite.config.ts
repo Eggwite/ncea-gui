@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { version } from './package.json'
 import path from 'node:path'
 import tailwindcss from "@tailwindcss/vite"
 import electron from 'vite-plugin-electron/simple'
@@ -25,4 +26,7 @@ export default defineConfig({
         : {},
     }),
   ],
+  define: {
+    __APP_VERSION__: JSON.stringify(version)
+  },
 })

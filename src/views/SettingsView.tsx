@@ -25,11 +25,16 @@ import {
   Download,
   ExternalLink,
   FolderInput,
+  Info,
   Package,
   RotateCcw,
   Trash2,
 } from "lucide-react";
 import { AppConfig } from "@/hooks/useAppConfig";
+import { getLatestVersion } from "@/lib/utils";
+
+const currentVersion = __APP_VERSION__;
+const latestVersion = await getLatestVersion("Eggwite", "ncea-gui");
 
 interface SettingsViewProps {
   config: AppConfig;
@@ -283,6 +288,30 @@ export default function SettingsView({
               >
                 <ExternalLink className="h-1 w-1" />{" "}
               </Button>
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Update/Version */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <Info className="w-8 h-8" />
+              <div>
+                <CardTitle className="text-base">App Version</CardTitle>
+                <CardDescription>
+                  If there's a newer version available, download it from the
+                  GitHub releases page
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              <strong>Current:</strong> {currentVersion}
+              <br />
+              <strong>Latest:</strong> {latestVersion}
+              {currentVersion !== latestVersion && <></>}
             </p>
           </CardContent>
         </Card>

@@ -41,3 +41,9 @@ export function formatRelativeTime(timestamp: number | undefined | null) {
   const months = Math.floor(days / 30)
   return `${months} month${months !== 1 ? 's' : ''} ago`
 }
+// Fetches the latest release version from GitHub API 
+export async function getLatestVersion(owner: any, repo: any) {
+  const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`)
+  const data = await res.json()
+  return data.tag_name // e.g. "v1.2.3"
+}
