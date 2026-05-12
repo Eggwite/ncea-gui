@@ -35,7 +35,7 @@ interface StandardData {
   standardId: string;
   title: string;
   subject: string;
-  level: number;
+  level: number | "scholarship";
   label?: string;
   entries: YearEntry[];
 }
@@ -141,7 +141,11 @@ export default function YearsView({
           <h1 className="text-2xl font-bold">{standard.title}</h1>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{standard.subject}</Badge>
-            <Badge variant="secondary">Level {standard.level}</Badge>
+            <Badge variant="secondary">
+              {standard.level === 0 || standard.level === "scholarship"
+                ? "Scholarship"
+                : `Level ${standard.level}`}
+            </Badge>
             <Badge variant="outline">{standard.standardId}</Badge>
             <Badge variant="outline">
               {(() => {

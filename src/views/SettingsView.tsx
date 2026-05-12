@@ -22,10 +22,10 @@ import {
 } from "@/components/ui/Card";
 import { FieldLabel } from "@/components/ui/field";
 import {
+  AppWindow,
   Download,
   ExternalLink,
   FolderInput,
-  Info,
   Package,
   RotateCcw,
   Trash2,
@@ -296,12 +296,21 @@ export default function SettingsView({
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <Info className="w-8 h-8" />
+              <AppWindow className="w-9 h-9" />
               <div>
                 <CardTitle className="text-base">App Version</CardTitle>
                 <CardDescription>
                   If there's a newer version available, download it from the
                   GitHub releases page
+                  {/* <Button
+                    variant="link"
+                    size="sm"
+                    className="ml-1 p-0"
+
+                    // Add opening GitHub releases page function later (requires passing IPC function from main process otherwise it only opens in an electron browser window which is not ideal)
+                  >
+                    GitHub releases page <ExternalLink />
+                  </Button> */}
                 </CardDescription>
               </div>
             </div>
