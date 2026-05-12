@@ -5,14 +5,6 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Button } from "@/components/ui/Button";
-import { Checkbox } from "@/components/ui/Checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -26,15 +18,17 @@ import {
   Download,
   ExternalLink,
   FolderInput,
-  Package,
   RotateCcw,
   Trash2,
 } from "lucide-react";
 import { AppConfig } from "@/hooks/useAppConfig";
 import { getLatestVersion } from "@/lib/utils";
+import SourcePreferenceFields from "@/components/settings/SourcePreferenceFields";
 
 const currentVersion = __APP_VERSION__;
-const latestVersion = await getLatestVersion("Eggwite", "ncea-gui");
+const latestVersion: string = String(
+  await getLatestVersion("Eggwite", "ncea-gui"),
+);
 
 interface SettingsViewProps {
   config: AppConfig;
@@ -42,6 +36,7 @@ interface SettingsViewProps {
     key: keyof AppConfig,
     value: string | boolean,
   ) => Promise<void>;
+  onClose?: () => void;
 }
 
 export default function SettingsView({
@@ -79,7 +74,7 @@ export default function SettingsView({
     const p = await window.ncea.pickFolder();
     if (p) {
       setDownloadPath(p);
-      onConfigUpdate("downloadPath", p);
+      void onConfigUpdate("downloadPath", p);
     }
   };
 
@@ -87,7 +82,7 @@ export default function SettingsView({
     const defaultPath = await window.ncea.resetDownloadPath();
     if (defaultPath) {
       setDownloadPath(defaultPath);
-      onConfigUpdate("downloadPath", defaultPath);
+      void onConfigUpdate("downloadPath", defaultPath);
     }
   };
 
@@ -106,10 +101,14 @@ export default function SettingsView({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h2 className="text-3xl font-bold">Settings</h2>
-        <p className="text-sm text-muted-foreground">
-          Configure your preferences
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-3xl font-bold">Settings</h2>
+            <p className="text-sm text-muted-foreground">
+              Configure your preferences
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -143,7 +142,9 @@ export default function SettingsView({
                     <FolderInput />
                   </InputGroupAddon>
                   <Button
-                    onClick={resetDownloadPath}
+                    onClick={() => {
+                      void resetDownloadPath();
+                    }}
                     variant="ghost"
                     size="icon"
                   >
@@ -151,7 +152,13 @@ export default function SettingsView({
                   </Button>
                 </InputGroup>
 
-                <Button onClick={pickFolder} variant="outline" size="sm">
+                <Button
+                  onClick={() => {
+                    void pickFolder();
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
                   Browse
                 </Button>
               </div>
@@ -166,65 +173,29 @@ export default function SettingsView({
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <Package className="w-8 h-8" />
+              <Download className="w-8 h-8" />
               <div>
                 <CardTitle className="text-base">Source Preferences</CardTitle>
                 <CardDescription>
-                  Choose your preferred data source
+                  Choose your preferred file provider and ordering behaviour
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <FieldLabel htmlFor="source-select" className="mb-2">
-                Favourite Source
-              </FieldLabel>
-              <Select
-                value={favorite}
-                onValueChange={(value) => {
-                  setFavorite(value);
-                  onConfigUpdate(
-                    "favoriteSource",
-                    value === "__default__" ? "" : value,
-                  );
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="(default)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">(default)</SelectItem>
-                  {sources.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                Select which data source to prioritise when searching
-              </p>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="always-refresh"
-                checked={alwaysRefresh}
-                onCheckedChange={(checked) => {
-                  const newValue = checked as boolean;
-                  setAlwaysRefresh(newValue);
-                  onConfigUpdate("alwaysRefresh", newValue);
-                }}
-              />
-              <FieldLabel htmlFor="always-refresh" className="cursor-pointer">
-                Always refresh sources on startup
-              </FieldLabel>
-            </div>
-            <p className="text-xs text-muted-foreground -mt-2">
-              (Default is off, not reccomended unless you have issues with stale
-              data)
-            </p>
+            <SourcePreferenceFields
+              sources={sources}
+              favoriteSource={favorite}
+              alwaysRefresh={alwaysRefresh}
+              onFavoriteSourceChange={(value) => {
+                setFavorite(value);
+                void onConfigUpdate("favoriteSource", value);
+              }}
+              onAlwaysRefreshChange={(value) => {
+                setAlwaysRefresh(value);
+                void onConfigUpdate("alwaysRefresh", value);
+              }}
+            />
           </CardContent>
         </Card>
 
@@ -247,7 +218,9 @@ export default function SettingsView({
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={clearCache}
+                  onClick={() => {
+                    void clearCache();
+                  }}
                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
                   Clear Cache
@@ -257,7 +230,9 @@ export default function SettingsView({
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={clearManifest}
+                  onClick={() => {
+                    void clearManifest();
+                  }}
                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
                   Clear Manifest
@@ -270,7 +245,9 @@ export default function SettingsView({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => window.ncea.openCacheFolder()}
+                onClick={() => {
+                  void window.ncea.openCacheFolder();
+                }}
                 title="Open cache folder"
                 className="ml-1 relative top-1"
               >
@@ -282,7 +259,9 @@ export default function SettingsView({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => window.ncea.openManifestFolder()}
+                onClick={() => {
+                  void window.ncea.openManifestFolder();
+                }}
                 title="Open manifest folder"
                 className="ml-1 relative top-1"
               >

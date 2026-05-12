@@ -10,14 +10,6 @@ const schema = {
     type: "boolean",
     default: false,
   },
-  auto_select_source: {
-    type: "boolean",
-    default: true,
-  },
-  default_source_override: {
-    type: "string",
-    default: "",
-  },
   favorite_source: {
     type: "string",
     default: DEFAULT_FAVORITE_SOURCE,

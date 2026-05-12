@@ -214,14 +214,17 @@ ipcMain.handle('get-papers', async (event, standardId: string) => {
   }
 })
 
-ipcMain.handle('download', async (_event, paper: any, downloadPath: string) => {
+ipcMain.handle('download', async (_event, paper: any, downloadPath: string, downloadId?: string) => {
   // Expand the download path if needed
   const expandedPath = expandPath(downloadPath)
+  const resolvedDownloadId = String(
+    downloadId || paper.__downloadId || paper.id || paper.filename || `download-${Date.now()}`,
+  )
   try {
     const result = await DownloadService.downloadInfo(paper, expandedPath, (progress) => {
       try {
         // send progress updates back to renderer
-        _event.sender.send('download-progress', { id: paper.__downloadId || paper.id || paper.filename, progress })
+        _event.sender.send('download-progress', { id: resolvedDownloadId, progress })
       } catch (e) {}
     })
 
@@ -230,7 +233,7 @@ ipcMain.handle('download', async (_event, paper: any, downloadPath: string) => {
     // Record successful downloads in history
     if (result.success === true || result === true) {
       const downloadInfo = result.success === true ? {
-        id: paper.__downloadId || `download-${Date.now()}`,
+        id: resolvedDownloadId,
         title: paper.title || paper.filename || 'Unknown',
         standardId: paper.standardId || '',
         fileName: result.fileName || paper.filename || '',
@@ -240,7 +243,7 @@ ipcMain.handle('download', async (_event, paper: any, downloadPath: string) => {
         size: result.size || 0,
         status: 'completed',
       } : {
-        id: paper.__downloadId || `download-${Date.now()}`,
+        id: resolvedDownloadId,
         title: paper.title || paper.filename || 'Unknown',
         standardId: paper.standardId || '',
         fileName: paper.filename || '',
@@ -255,10 +258,10 @@ ipcMain.handle('download', async (_event, paper: any, downloadPath: string) => {
     }
 
     // final progress 100
-    try { _event.sender.send('download-progress', { id: paper.__downloadId || paper.id || paper.filename, progress: 100 }) } catch (e) {}
+    try { _event.sender.send('download-progress', { id: resolvedDownloadId, progress: 100 }) } catch (e) {}
     return result
   } catch (e) {
-    try { _event.sender.send('download-progress', { id: paper.__downloadId || paper.id || paper.filename, progress: -1 }) } catch (err) {}
+    try { _event.sender.send('download-progress', { id: resolvedDownloadId, progress: -1 }) } catch (err) {}
     throw e
   }
 })

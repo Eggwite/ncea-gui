@@ -7,9 +7,11 @@ import SearchEmptyState from "@/components/search/SearchEmptyState";
 import SearchResultCard from "@/components/search/SearchResultCard";
 import { SearchStandard, DetailedStandard, PapersProgress } from "@/types";
 
+const normaliseStandardId = (value: string) =>
+  String(value || "").match(/\d{5}/)?.[0] ?? "";
+
 interface SearchViewProps {
   onSelectStandard: (std: DetailedStandard) => void;
-  onNavigateToSettings?: () => void;
   query?: string;
   onQueryChange?: (query: string) => void;
   results?: SearchStandard[] | null;
@@ -94,6 +96,14 @@ export default function SearchView({
           Math.max(0, Math.round((performance.now() - startedAt) * 1_000_000)),
         );
         setSearchDurationNs(elapsedNs);
+
+        const exactId = normaliseStandardId(query);
+        const exactMatch = (res || []).find(
+          (item) => normaliseStandardId(item.standardId) === exactId,
+        );
+        if (exactMatch && exactId && (res || []).length === 1) {
+          void handleSelectStandard(exactMatch);
+        }
       }
     } catch (e: unknown) {
       if (pendingQuery.current === query) {
@@ -114,13 +124,13 @@ export default function SearchView({
       return;
     }
     const timer = setTimeout(() => {
-      doSearch();
+      void doSearch();
     }, 600);
     return () => clearTimeout(timer);
   }, [query, doSearch]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") doSearch();
+    if (e.key === "Enter") void doSearch();
   };
 
   const handleSelectStandard = async (std: SearchStandard) => {
@@ -130,7 +140,9 @@ export default function SearchView({
       setPapersProgress(progress),
     );
     try {
-      const grouped = await window.ncea.getPapers(std.standardId);
+      const grouped = (await window.ncea.getPapers(
+        std.standardId,
+      )) as DetailedStandard[];
       const detailed = grouped.find((g) => g.standardId === std.standardId);
       if (detailed && detailed.entries.length > 0) {
         onSelectStandard(detailed);
@@ -161,7 +173,9 @@ export default function SearchView({
         query={typeof query === "string" ? query : ""}
         onChange={handleInputChange}
         onKeyPress={handleKeyPress}
-        onSearch={doSearch}
+        onSearch={() => {
+          void doSearch();
+        }}
       />
 
       <div className="min-h-96">
@@ -206,7 +220,9 @@ export default function SearchView({
                 result={r}
                 isSelecting={selectingStandardId === r.standardId}
                 papersProgress={papersProgress}
-                onSelect={handleSelectStandard}
+                onSelect={(standard) => {
+                  void handleSelectStandard(standard);
+                }}
               />
             ))}
           </div>

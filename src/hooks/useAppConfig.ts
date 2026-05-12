@@ -46,9 +46,8 @@ export const useAppConfig = () => {
           : key;
 
     try {
-      const result = await window.ncea.setConfig(backendKey, value);
+      await window.ncea.setConfig(backendKey, value);
       setConfig((prev) => ({ ...prev, [key]: value }));
-      return result;
     } catch (e) {
       console.error(`Failed to update config ${key}:`, e);
       throw e;

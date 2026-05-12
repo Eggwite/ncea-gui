@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import SearchView from "./views/SearchView";
 import YearsView from "./views/YearsView";
-import PaperSelector from "./views/PaperSelector";
 import SettingsView from "./views/SettingsView";
 import DownloadsView from "./views/DownloadsView";
 import { Toaster } from "@/components/ui/sonner";
@@ -29,7 +28,6 @@ export default function App() {
     "search" | "years" | "downloads" | "settings"
   >("search");
   const [selectedStandard, setSelectedStandard] = useState<any | null>(null);
-  const [selectorStandard, setSelectorStandard] = useState<any | null>(null);
   const [downloads, setDownloads] = useState<any[]>([]);
   const [isMaximized, setIsMaximized] = useState(false);
   const [dark, setDark] = useState(false);
@@ -118,10 +116,6 @@ export default function App() {
     } catch (e) {}
   };
 
-  const openPaperSelector = (standard: any) => {
-    setSelectorStandard(standard);
-  };
-
   const openYearsView = (standard: any) => {
     setPreviousView("search");
     setSelectedStandard(standard);
@@ -173,19 +167,14 @@ export default function App() {
         setDownloads((cur) =>
           cur.map((d) => {
             if (!d) return d;
-            if (d.id === p.id || d.id === d.id || d.id === d.id) {
-              if (p.progress >= 0)
-                return {
-                  ...d,
-                  progress: p.progress,
-                  status: p.progress === 100 ? "completed" : "downloading",
-                };
-              return { ...d, status: "failed" };
-            }
-            // also match by id field provided from YearsView/PaperSelector
-            if (d.id === p.id || d.id === d.id) return d;
-            if (d.id === d.id) return d;
-            return d;
+            if (d.id !== p.id) return d;
+            if (p.progress >= 0)
+              return {
+                ...d,
+                progress: p.progress,
+                status: p.progress === 100 ? "completed" : "downloading",
+              };
+            return { ...d, status: "failed" };
           }),
         );
       },
@@ -296,7 +285,6 @@ export default function App() {
           {view === "search" && (
             <SearchView
               onSelectStandard={openYearsView}
-              onNavigateToSettings={toggleSettings}
               query={searchQuery}
               onQueryChange={setSearchQuery}
               results={searchResults}
@@ -332,20 +320,11 @@ export default function App() {
           {view === "settings" && (
             <SettingsView
               onClose={() => setView("search")}
-              config={config} //@ts-expect-error Typescript is being difficult right now. TODO: Refactor SettingsView to not require the entire config object, just the relevant parts.
+              config={config}
               onConfigUpdate={updateConfig}
             />
           )}
         </main>
-
-        {selectorStandard && (
-          <PaperSelector
-            standard={selectorStandard}
-            onClose={() => setSelectorStandard(null)}
-            onDownloadStart={(item) => onStartDownload(item)}
-            downloadPath={config.downloadPath}
-          />
-        )}
       </div>
       <Toaster richColors theme={dark ? "dark" : "light"} />{" "}
     </>
