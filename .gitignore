@@ -23,3 +23,7 @@ dist-electron
 *.njsproj
 *.sln
 *.sw?
+
+# Release files
+releases/
+release/

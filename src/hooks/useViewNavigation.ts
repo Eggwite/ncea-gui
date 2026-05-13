@@ -8,16 +8,17 @@ export function useViewNavigation() {
   const [selectedStandard, setSelectedStandard] = useState<any | null>(null);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Backspace" && view === "years") {
-        e.preventDefault();
-        backToSearch();
-      }
-    };
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Backspace" && view === "years") {
+      e.preventDefault();
+      setSelectedStandard(null);
+      setView("search");
+    }
+  };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [view]);
+  window.addEventListener("keydown", handleKeyDown);
+  return () => window.removeEventListener("keydown", handleKeyDown);
+}, [view]);
 
   const openYearsView = (standard: any) => {
     setPreviousView("search");

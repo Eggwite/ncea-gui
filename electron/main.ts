@@ -54,7 +54,7 @@ const notifyDownloadsHistoryChanged = () => {
 
 function createWindow() {
   win = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    icon: path.join(process.env.VITE_PUBLIC, 'icon.svg'),
     width: 1080,
     height: 720,
     // Frameless window so we can implement a custom window bar in the renderer
@@ -205,7 +205,7 @@ ipcMain.handle('clear-manifest', async () => {
 
 ipcMain.handle('get-papers', async (event, standardId: string) => {
   // Set up progress callback to send updates to renderer
-  aggregator.progressCallback = (progress) => {
+  aggregator.progressCallback = (progress: any) => {
     event.sender.send('papers-progress', progress)
   }
   
@@ -227,17 +227,16 @@ ipcMain.handle('download', async (_event, paper: any, downloadPath: string, down
     downloadId || paper.__downloadId || paper.id || paper.filename || `download-${Date.now()}`,
   )
   try {
-    const result = await DownloadService.downloadInfo(paper, expandedPath, (progress) => {
-      try {
+      const result = await DownloadService.downloadInfo(paper, expandedPath, (progress: any) => {      try {
         // send progress updates back to renderer
         _event.sender.send('download-progress', { id: resolvedDownloadId, progress })
       } catch (e) {}
     })
 
-    manifestService.recordDownloadOutcome(paper, result.success === true || result === true)
+    manifestService.recordDownloadOutcome(paper, typeof result === 'object' && result.success === true)
 
     // Record successful downloads in history
-    if (result.success === true || result === true) {
+    if (typeof result === 'object' && result.success === true) {
       const downloadInfo = result.success === true ? {
         id: resolvedDownloadId,
         title: paper.title || paper.filename || 'Unknown',

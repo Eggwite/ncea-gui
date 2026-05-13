@@ -26,9 +26,6 @@ import { getLatestVersion } from "@/lib/utils";
 import SourcePreferenceFields from "@/components/settings/SourcePreferenceFields";
 
 const currentVersion = __APP_VERSION__;
-const latestVersion: string = String(
-  await getLatestVersion("Eggwite", "ncea-gui"),
-);
 
 interface SettingsViewProps {
   config: AppConfig;
@@ -54,6 +51,7 @@ export default function SettingsView({
     manifest: string;
     total: string;
   } | null>(null);
+  const [latestVersion, setLatestVersion] = useState<string>(currentVersion);
 
   useEffect(() => {
     // Initialize from parent config
@@ -68,6 +66,11 @@ export default function SettingsView({
       .getStorageUsage()
       .then((s) => setStorage(s))
       .catch(() => {});
+
+    // Fetch latest version dynamically
+    getLatestVersion("Eggwite", "ncea-gui")
+      .then((v) => setLatestVersion(String(v)))
+      .catch(() => {}); // Keep current version if fetch fails
   }, [config]);
 
   const pickFolder = async () => {

@@ -2,8 +2,7 @@ import { ipcRenderer, contextBridge } from 'electron'
 
 contextBridge.exposeInMainWorld('ncea', {
   search: (query: string) => ipcRenderer.invoke('search', query),
-  getStandard: (standardId) => ipcRenderer.invoke("ncea:getStandard", standardId),
-
+  getStandard: (standardId: string) => ipcRenderer.invoke("ncea:getStandard", standardId),
   getPapers: (standardId: string) => ipcRenderer.invoke('get-papers', standardId),
   onPapersProgress: (cb: (progress: any) => void) => {
     const listener = (_: any, progress: any) => cb(progress)

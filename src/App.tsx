@@ -173,14 +173,14 @@ export default function App() {
               downloads={downloads}
               onOpenStandard={(standardId: string) => {
                 setSearchQuery(standardId);
-                setView("search");
+                backToSearch();
               }}
             />
           )}
 
           {view === "settings" && (
             <SettingsView
-              onClose={() => setView("search")}
+              onClose={backToSearch}
               config={config}
               onConfigUpdate={updateConfig}
             />
