@@ -23,6 +23,23 @@ import { prettifyTypeLabel } from "./search/typeLabels.js";
 
 // GUI searches can show a slightly larger shortlist without hurting ranking.
 const MAX_NON_EXACT_RESULT_GROUPS = 10;
+const EXACT_LOOKUP_ADAPTER_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(factory, timeoutMs, onTimeout) {
+	let timeoutId;
+	const timeoutPromise = new Promise((resolve) => {
+		timeoutId = setTimeout(() => {
+			if (onTimeout) onTimeout();
+			resolve([]);
+		}, timeoutMs);
+	});
+
+	try {
+		return await Promise.race([Promise.resolve().then(factory), timeoutPromise]);
+	} finally {
+		return clearTimeout(timeoutId);
+	}
+}
 
 function classifySearchConfidence(score, gap) {
 	// These bands separate a clear winner from a near-tie in the offline ranker.
@@ -237,7 +254,15 @@ export class SearchAggregator {
 			// Track progress as adapters complete; skip any adapters that failed health check
 			const activeAdapters = this.getActiveAdapters();
 			const adapterFetches = activeAdapters.map((adapter, index) =>
-				adapter.fetchByStandard(id).then(
+				fetchWithTimeout(
+					() => adapter.fetchByStandard(id),
+					EXACT_LOOKUP_ADAPTER_TIMEOUT_MS,
+					() => {
+						console.warn(
+							`[${adapter.name}] Exact lookup timed out after ${EXACT_LOOKUP_ADAPTER_TIMEOUT_MS}ms`
+						);
+					}
+				).then(
 					(result) => {
 						if (this.progressCallback) {
 							this.progressCallback({
