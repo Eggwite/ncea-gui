@@ -1,0 +1,54 @@
+name: Build Windows & Linux
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+      - run: npm ci
+      - run: npm run build:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: release/*/*
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
+          files: release/*/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+      - name: Install Linux dependencies
+        run: sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+      - run: npm ci
+      - run: npm run build:linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: release/*/*
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
+          files: release/*/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
