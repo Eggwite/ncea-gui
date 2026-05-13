@@ -16,6 +16,8 @@ jobs:
           node-version: '25'
       - run: npm ci
       - run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: windows-release
@@ -42,6 +44,8 @@ jobs:
           sudo apt-get install -y --fix-missing libgtk-3-dev libwebkit2gtk-4.1-dev
       - run: npm ci
       - run: npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: linux-release
