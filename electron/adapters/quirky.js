@@ -23,6 +23,7 @@ function encodeLocationPath(location) {
 
 export class QuirkyAdapter extends PaperSourceAdapter {
 	static displayName = "Quirky NZQA PDF API";
+	static sourceName = "QuirkyAdapter";
 
 	async buildIndex() {
 		const cached = CacheService.get(CACHE_KEY, INDEX_CACHE_TTL_MS);

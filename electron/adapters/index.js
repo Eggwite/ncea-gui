@@ -10,7 +10,7 @@ import { PaperType } from "../core/constants.js";
 
 export class PaperSourceAdapter {
 	constructor() {
-		this.name = this.constructor.name;
+		this.name = this.constructor.sourceName ?? this.constructor.name;
 		this._index = null;
 		this._indexPromise = null;
 	}

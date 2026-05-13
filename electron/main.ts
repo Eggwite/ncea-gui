@@ -3,7 +3,7 @@ import fs from 'fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
-import { ipcMain } from 'electron'
+import { ipcMain, Menu } from 'electron'
 import { SearchAggregator } from './core/search.js'
 import { DownloadService } from './core/downloader.js'
 import { ManifestService } from './core/manifest.js'
@@ -43,6 +43,9 @@ export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
+
+Menu.setApplicationMenu(null)
+
 
 let win: BrowserWindow | null
 

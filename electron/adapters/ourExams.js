@@ -44,6 +44,7 @@ function mapIndexToBulkPapers(adapterName, indexData) {
 
 export class OurExamsAdapter extends PaperSourceAdapter {
 	static displayName = "OurExams GitHub Repository";
+	static sourceName = "OurExamsAdapter";
 
 	async _loadIndexData() {
 		return CacheService.getOrSet(CACHE_KEY, INDEX_CACHE_TTL_MS, async () => {
