@@ -46,6 +46,12 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 
 let win: BrowserWindow | null
 
+const notifyDownloadsHistoryChanged = () => {
+  for (const browserWindow of BrowserWindow.getAllWindows()) {
+    browserWindow.webContents.send('downloads-history-changed')
+  }
+}
+
 function createWindow() {
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
@@ -255,6 +261,7 @@ ipcMain.handle('download', async (_event, paper: any, downloadPath: string, down
       }
 
       addDownloadToHistory(downloadInfo)
+      notifyDownloadsHistoryChanged()
     }
 
     // final progress 100
@@ -272,15 +279,21 @@ ipcMain.handle('get-downloads-history', async () => {
 })
 
 ipcMain.handle('add-download', async (_event, downloadInfo: any) => {
-  return addDownloadToHistory(downloadInfo)
+  const result = addDownloadToHistory(downloadInfo)
+  notifyDownloadsHistoryChanged()
+  return result
 })
 
 ipcMain.handle('remove-download', async (_event, downloadId: string) => {
-  return removeDownloadFromHistory(downloadId)
+  const result = removeDownloadFromHistory(downloadId)
+  notifyDownloadsHistoryChanged()
+  return result
 })
 
 ipcMain.handle('clear-downloads-history', async () => {
-  return clearDownloadsHistory()
+  const result = clearDownloadsHistory()
+  notifyDownloadsHistoryChanged()
+  return result
 })
 
 ipcMain.handle('verify-downloads', async (_event, paths: string[]) => {

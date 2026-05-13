@@ -33,6 +33,11 @@ contextBridge.exposeInMainWorld('ncea', {
     ipcRenderer.on('download-progress', listener)
     return () => ipcRenderer.removeListener('download-progress', listener)
   },
+  onDownloadsHistoryChanged: (cb: () => void) => {
+    const listener = () => cb()
+    ipcRenderer.on('downloads-history-changed', listener)
+    return () => ipcRenderer.removeListener('downloads-history-changed', listener)
+  },
   // Window controls
   minimize: () => ipcRenderer.invoke('window-minimize'),
   toggleMaximize: () => ipcRenderer.invoke('window-toggle-maximize'),

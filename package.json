@@ -1,8 +1,13 @@
 {
   "name": "ncea-gui",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
+  "description": "Ever wanted to unify finding past papers?",
+  "author": {
+    "name": "Eggwite",
+    "url": "https://github.com/Eggwite"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",

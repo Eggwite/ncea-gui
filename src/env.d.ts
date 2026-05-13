@@ -21,6 +21,7 @@ interface Window {
     verifyDownloads: (paths: string[]) => Promise<Array<{ path: string; exists: boolean }>>
     resetDownloadPath: () => Promise<string>
     onDownloadProgress: (callback: (progress: { id: string; progress: number }) => void) => () => void
+    onDownloadsHistoryChanged: (callback: () => void) => () => void
     minimize: () => Promise<void>
     toggleMaximize: () => Promise<void>
     isMaximized: () => Promise<boolean>

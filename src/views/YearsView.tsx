@@ -1,6 +1,16 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowBigLeftDash, Download } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Separator } from "@/components/ui/separator";
@@ -24,11 +34,29 @@ interface YearEntry {
   typeChoices?: Array<{
     type: string;
     label: string;
-    papers: Array<{ filename: string; [key: string]: any }>;
+    papers: Array<DownloadPaper>;
     sourceCount: number;
   }>;
   typeSummary?: string;
   sourceSummary?: string;
+}
+
+interface DownloadPaper {
+  filename: string;
+  __downloadId?: string;
+  [key: string]: unknown;
+}
+
+interface DownloadHistoryEntry {
+  standardId?: string;
+  fileName?: string;
+  filePath?: string;
+}
+
+interface DownloadStartItem {
+  paper: DownloadPaper;
+  filename: string;
+  id: string;
 }
 
 interface StandardData {
@@ -43,7 +71,7 @@ interface StandardData {
 interface YearsViewProps {
   standard: StandardData;
   onBack: () => void;
-  onDownloadStart: (item: any) => void;
+  onDownloadStart: (item: DownloadStartItem) => void;
   downloadPath: string;
 }
 
@@ -55,6 +83,13 @@ export default function YearsView({
 }: YearsViewProps) {
   const [selection, setSelection] = useState<Record<string, boolean>>({});
   const [downloading, setDownloading] = useState(false);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicateDialogNames, setDuplicateDialogNames] = useState<string[]>(
+    [],
+  );
+  const duplicateDialogResolver = useRef<
+    ((shouldProceed: boolean) => void) | null
+  >(null);
 
   const toggleSelection = (key: string) => {
     setSelection((s) => ({ ...s, [key]: !s[key] }));
@@ -80,28 +115,128 @@ export default function YearsView({
     }
   };
 
+  const promptForDuplicateDownloads = (names: string[]) => {
+    setDuplicateDialogNames(names);
+    setDuplicateDialogOpen(true);
+    return new Promise<boolean>((resolve) => {
+      duplicateDialogResolver.current = resolve;
+    });
+  };
+
+  const resolveDuplicateDialog = (shouldProceed: boolean) => {
+    duplicateDialogResolver.current?.(shouldProceed);
+    duplicateDialogResolver.current = null;
+    setDuplicateDialogOpen(false);
+    if (!shouldProceed) {
+      setDuplicateDialogNames([]);
+    }
+  };
+
   const doDownload = async () => {
     const chosen = Object.keys(selection).filter((k) => selection[k]);
     if (chosen.length === 0) return;
 
-    setDownloading(true);
-    try {
-      for (const key of chosen) {
-        const [eIndex, tIndex] = key.split(":").map(Number);
-        const entry = standard.entries[eIndex];
-        const typeChoice = entry?.typeChoices?.[tIndex];
+    const history = ((await window.ncea.getDownloadsHistory()) ||
+      []) as DownloadHistoryEntry[];
+    const historyLookup = new Map<string, DownloadHistoryEntry[]>();
+
+    for (const record of history) {
+      const key = `${String(record.standardId || "")}::${String(record.fileName || "")}`;
+      const items = historyLookup.get(key) || [];
+      items.push(record);
+      historyLookup.set(key, items);
+    }
+
+    const downloadJobs = chosen
+      .map((key) => {
+        const [entryIndex, typeIndex] = key.split(":").map(Number);
+        const entry = standard.entries[entryIndex];
+        const typeChoice = entry?.typeChoices?.[typeIndex];
         const paper = typeChoice?.papers?.[0];
 
-        if (paper) {
-          const id = `dl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-          // attach id to paper so main can use it when emitting progress
-          (paper as any).__downloadId = id;
-          onDownloadStart({ paper, filename: (paper as any).filename, id });
-          try {
-            await window.ncea.download(paper, downloadPath || "", id);
-          } catch (e) {
-            console.error("Download failed:", e);
-          }
+        if (!paper) return null;
+
+        const duplicateKey = `${standard.standardId}::${paper.filename}`;
+        const existingRecords = historyLookup.get(duplicateKey) || [];
+
+        return {
+          key,
+          paper,
+          filename: paper.filename,
+          duplicateRecords: existingRecords,
+        };
+      })
+      .filter(
+        (
+          job,
+        ): job is {
+          key: string;
+          paper: DownloadPaper;
+          filename: string;
+          duplicateRecords: DownloadHistoryEntry[];
+        } => Boolean(job),
+      );
+
+    const duplicatePaths = Array.from(
+      new Set(
+        downloadJobs.flatMap((job) =>
+          job.duplicateRecords
+            .map((record) => record.filePath)
+            .filter((filePath): filePath is string => Boolean(filePath)),
+        ),
+      ),
+    );
+    const verifiedDuplicates =
+      duplicatePaths.length > 0
+        ? await window.ncea.verifyDownloads(duplicatePaths)
+        : [];
+    const existingDuplicatePaths = new Set(
+      verifiedDuplicates.filter((item) => item.exists).map((item) => item.path),
+    );
+
+    const duplicateJobs = downloadJobs.filter((job) =>
+      job.duplicateRecords.some((record) =>
+        existingDuplicatePaths.has(record.filePath || ""),
+      ),
+    );
+    let finalJobs = downloadJobs;
+
+    if (duplicateJobs.length > 0) {
+      const shouldRedownload = await promptForDuplicateDownloads(
+        duplicateJobs.map((job) => job.filename),
+      );
+
+      if (!shouldRedownload) {
+        finalJobs = downloadJobs.filter(
+          (job) => job.duplicateRecords.length === 0,
+        );
+      }
+    }
+
+    if (finalJobs.length === 0) return;
+
+    setDownloading(true);
+    try {
+      const queuedJobs = finalJobs.map((job) => ({
+        ...job,
+        id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      }));
+
+      queuedJobs.forEach((job) => {
+        // attach id to paper so main can use it when emitting progress
+        job.paper.__downloadId = job.id;
+        onDownloadStart({
+          paper: job.paper,
+          filename: job.filename,
+          id: job.id,
+        });
+      });
+
+      for (const job of queuedJobs) {
+        try {
+          await window.ncea.download(job.paper, downloadPath || "", job.id);
+        } catch (e) {
+          console.error("Download failed:", e);
         }
       }
     } finally {
@@ -122,8 +257,49 @@ export default function YearsView({
     return () => window.removeEventListener("keydown", handler);
   }, [onBack]);
 
+  useEffect(() => {
+    return () => {
+      duplicateDialogResolver.current?.(false);
+      duplicateDialogResolver.current = null;
+    };
+  }, []);
+
   return (
     <div className="space-y-4">
+      <AlertDialog
+        open={duplicateDialogOpen}
+        onOpenChange={(open) => {
+          setDuplicateDialogOpen(open);
+          if (!open && duplicateDialogResolver.current) {
+            resolveDuplicateDialog(false);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Download existing files again?</AlertDialogTitle>
+            <AlertDialogDescription>
+              These files are already on disk. Downloading again will create
+              another copy with a unique filename.
+              <br />
+              <br />
+              {duplicateDialogNames.length > 0 && (
+                <span className="block max-h-28 overflow-auto rounded-md border bg-muted/40 p-3 text-xs text-foreground">
+                  {duplicateDialogNames.join("\n")}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => resolveDuplicateDialog(false)}>
+              Skip duplicates
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => resolveDuplicateDialog(true)}>
+              Download anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* Compact Header with Back Button & Metadata */}
       <div className="space-y-3">
         <Button
@@ -192,7 +368,9 @@ export default function YearsView({
                   </Button>
                   <Button
                     size="sm"
-                    onClick={doDownload}
+                    onClick={() => {
+                      void doDownload();
+                    }}
                     disabled={selectedCount === 0 || downloading}
                   >
                     <Download className="w-4 h-4 mr-2" />
