@@ -7,9 +7,6 @@ import SearchEmptyState from "@/components/search/SearchEmptyState";
 import SearchResultCard from "@/components/search/SearchResultCard";
 import { SearchStandard, DetailedStandard, PapersProgress } from "@/types";
 
-const normaliseStandardId = (value: string) =>
-  String(value || "").match(/\d{5}/)?.[0] ?? "";
-
 interface SearchViewProps {
   onSelectStandard: (std: DetailedStandard) => void;
   query?: string;
@@ -96,14 +93,6 @@ export default function SearchView({
           Math.max(0, Math.round((performance.now() - startedAt) * 1_000_000)),
         );
         setSearchDurationNs(elapsedNs);
-
-        const exactId = normaliseStandardId(query);
-        const exactMatch = (res || []).find(
-          (item) => normaliseStandardId(item.standardId) === exactId,
-        );
-        if (exactMatch && exactId && (res || []).length === 1) {
-          void handleSelectStandard(exactMatch);
-        }
       }
     } catch (e: unknown) {
       if (pendingQuery.current === query) {

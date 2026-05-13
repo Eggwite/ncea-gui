@@ -1,30 +1,109 @@
-# React + TypeScript + Vite
+<div align="center">
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# 🎓 NCEA GUI
 
-Currently, two official plugins are available:
+**Find and download NCEA past papers — no hassle.**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg)]()
+[![Releases](https://img.shields.io/github/v/release/Eggwite/ncea-gui)](../../releases/latest)
 
-## Expanding the ESLint configuration
+<!-- TODO: add a demo GIF here -->
+![App screenshot placeholder](docs/assets/screenshot.png)
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+A desktop app for finding and downloading NCEA past papers built for students.
 
-- Configure the top-level `parserOptions` property like this:
+</div>
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
+---
+
+## Installation
+
+### Windows
+
+1. Download **`NCEA GUI-Windows-Setup.exe`** from [Releases](../../releases/latest)
+2. Run the installer and follow the prompts
+3. Launch **NCEA GUI** from your desktop or Start Menu
+
+### Linux
+
+1. Download **`NCEA GUI-Linux.AppImage`** from [Releases](../../releases/latest)
+2. Make it executable:
+   ```bash
+   chmod +x "NCEA GUI-Linux.AppImage"
+   ```
+3. Double-click to run, or launch from terminal:
+   ```bash
+   ./"NCEA GUI-Linux.AppImage"
+   ```
+
+> For building from source, see [docs/BUILD.md](docs/BUILD.md).
+
+---
+
+## How it works
+
+**1. Search** — type a subject, standard ID, or keyword
+
+<!-- TODO: screenshot of search view -->
+![Search view placeholder](docs/assets/search.png)
+
+**2. Pick your papers** — choose the year and paper type you need
+
+<!-- TODO: screenshot of paper selector -->
+![Paper selector placeholder](docs/assets/selector.png)
+
+**3. Download** — files are saved straight to your Downloads folder
+
+<!-- TODO: screenshot of download progress -->
+![Download placeholder](docs/assets/download.png)
+
+---
+
+## Features
+
+| | |
+|---|---|
+| 🔍 | Fuzzy search over titles, subjects, and standard IDs |
+| 📚 | Multi-source retrieval with source preference support |
+| 📅 | Interactive year and paper-type selection |
+| ⚡ | Manifest and adapter caching for faster repeat lookups |
+| ⚙️ | Settings for download folder, source preference, and cache management |
+| 🖥️ | Native desktop app — no terminal needed |
+
+---
+
+## Contributing
+
+To add a new source adapter, see [docs/ADDING_ADAPTER.md](docs/ADDING_ADAPTER.md).
+
+### Running GUI Tests
+
+Use these before opening a PR to catch common frontend regressions:
+
+```bash
+npm test
 ```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+Watch mode while developing:
+
+```bash
+npm run test:watch
+```
+
+Current test coverage focuses on:
+
+- search view behavior (debounced search + exact-match auto-open)
+- navigation state transitions (search/years/settings/downloads)
+- downloads list grouping/sorting/filter logic
+
+## License
+
+MIT
+
+
+<div align="center">
+
+~ made with lots of love by a fellow student! 💖
+
+</div>
