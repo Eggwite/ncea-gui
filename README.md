@@ -9,7 +9,8 @@
 [![Releases](https://img.shields.io/github/v/release/Eggwite/ncea-gui)](../../releases/latest)
 
 <!-- TODO: add a demo GIF here -->
-![App screenshot placeholder](docs/assets/screenshot.png)
+<img width="804" height="533" alt="image" src="https://github.com/user-attachments/assets/1b3f68cf-bc39-4f3d-8cef-6ed8110608ac" />
+
 
 A desktop app for finding and downloading NCEA past papers built for students.
 
@@ -45,20 +46,18 @@ A desktop app for finding and downloading NCEA past papers built for students.
 
 **1. Search** — type a subject, standard ID, or keyword
 
-<!-- TODO: screenshot of search view -->
-![Search view placeholder](docs/assets/search.png)
+<img width="934" height="266" alt="image" src="https://github.com/user-attachments/assets/f8963513-7cb1-42c3-8514-4865805ba400" />
 
 **2. Pick your papers** — choose the year and paper type you need
 
-<!-- TODO: screenshot of paper selector -->
-![Paper selector placeholder](docs/assets/selector.png)
+<img width="916" height="383" alt="image" src="https://github.com/user-attachments/assets/fb977f82-37f2-4260-be8d-149288363088" />
 
 **3. Download** — files are saved straight to your Downloads folder
 
-<!-- TODO: screenshot of download progress -->
-![Download placeholder](docs/assets/download.png)
+<img width="931" height="539" alt="image" src="https://github.com/user-attachments/assets/dab09272-7ad8-494b-b410-647737457e1a" />
 
 ---
+<div align="center">
 
 ## Features
 
@@ -70,6 +69,7 @@ A desktop app for finding and downloading NCEA past papers built for students.
 | ⚡ | Manifest and adapter caching for faster repeat lookups |
 | ⚙️ | Settings for download folder, source preference, and cache management |
 | 🖥️ | Native desktop app |
+</div>
 
 ---
 
@@ -90,12 +90,6 @@ Watch mode while developing:
 ```bash
 npm run test:watch
 ```
-
-Current test coverage focuses on:
-
-- search view behavior (debounced search + exact-match auto-open)
-- navigation state transitions (search/years/settings/downloads)
-- downloads list grouping/sorting/filter logic
 
 ## License
 
