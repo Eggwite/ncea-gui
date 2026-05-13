@@ -69,13 +69,13 @@ A desktop app for finding and downloading NCEA past papers built for students.
 | 📅 | Interactive year and paper-type selection |
 | ⚡ | Manifest and adapter caching for faster repeat lookups |
 | ⚙️ | Settings for download folder, source preference, and cache management |
-| 🖥️ | Native desktop app — no terminal needed |
+| 🖥️ | Native desktop app |
 
 ---
 
 ## Contributing
 
-To add a new source adapter, see [docs/ADDING_ADAPTER.md](docs/ADDING_ADAPTER.md).
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
 ### Running GUI Tests
 
