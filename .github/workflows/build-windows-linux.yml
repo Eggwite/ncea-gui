@@ -13,6 +13,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '25'
       - name: Get tag
         id: tag
         run: echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
@@ -23,9 +26,6 @@ jobs:
           $ver = $tag.TrimStart('v')
           npm version $ver --no-git-tag-version
         shell: powershell
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '25'
       - run: npm ci
       - run: npm run build:win
         env:
@@ -50,6 +50,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '25'
       - name: Get tag
         id: tag
         run: echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
@@ -59,9 +62,6 @@ jobs:
           TAG=${{ steps.tag.outputs.tag }}
           VER=${TAG#v}
           npm version "$VER" --no-git-tag-version
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '25'
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
