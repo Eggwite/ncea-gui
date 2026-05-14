@@ -21,6 +21,7 @@ import {
 } from './core/configManager.js'
 import { getStorageUsage } from './utils/storage.js'
 import { formatBytes } from './utils/format.js'
+import { updateElectronApp, UpdateSourceType } from 'update-electron-app'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const aggregator = new SearchAggregator()
@@ -45,6 +46,8 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
 Menu.setApplicationMenu(null)
+
+const supportsPublicUpdateService = process.platform === 'win32' || process.platform === 'darwin'
 
 
 let win: BrowserWindow | null
@@ -111,6 +114,14 @@ app.on('activate', () => {
 
 app.whenReady().then(async () => {
   await aggregator.initialise()
+  if (app.isPackaged && supportsPublicUpdateService) {
+    updateElectronApp({
+      updateSource: {
+        type: UpdateSourceType.ElectronPublicUpdateService,
+        repo: 'Eggwite/ncea-gui',
+      },
+    })
+  }
   createWindow()
 })
 

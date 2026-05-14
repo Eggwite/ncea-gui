@@ -4,6 +4,11 @@
 	appId: "ncea-gui",
 	asar: true,
 	productName: "NCEA GUI",
+	publish: {
+		provider: "github",
+		owner: "Eggwite",
+		repo: "ncea-gui",
+	},
 	directories: {
 		output: "release/${version}",
 	},
