@@ -1,137 +1,76 @@
-# ncea-cli Documentation
+# NCEA GUI Documentation
 
 ## Overview
 
-ncea-cli is an interactive command-line tool for finding and downloading NCEA past papers.
+NCEA GUI is a desktop application for finding and downloading NCEA past papers.
 
-It is optimised for manual terminal use and supports:
+It is built for students who prefer a graphical interface, and supports:
 
-- Smart search over titles, subjects, and keywords.
-- Ranking that keeps exact matches in the results when they fit best.
+- Fuzzy search over titles, subjects, and standard IDs.
 - Multi-source paper retrieval with source preference handling.
+- Interactive year and paper-type selection.
 - Local manifest and adapter caching for faster repeat usage.
-- Maintenance commands for clearing cache and manifest data.
+- Settings for download location, source preferences, and cache management.
 
-Primary entry point:
+## Install
 
-- [src/main.js](src/main.js)
+Download the latest installer from [Releases](../../releases/latest) and run it.
 
-## Install and Run
+### Windows
 
-**Prerequisites:** 
-- [Node.js](https://nodejs.org/) (Version 18+ is required to run the native test suite and native fetch).
+Run **`NCEA GUI-Windows-Setup.exe`** and follow the prompts.
 
-Install dependencies:
+### Linux
 
-```bash
-npm install
-```
-
-Start interactive mode (from source):
+Make the AppImage executable and run it:
 
 ```bash
-npm start
+chmod +x "NCEA GUI-Linux.AppImage"
+./"NCEA GUI-Linux.AppImage"
 ```
 
-Run directly:
+> For building from source, see [BUILD.md](BUILD.md).
 
-```bash
-node src/main.js
-```
+## Usage
 
-**Global Installation (Optional):**
-If you want to run the tool from anywhere without navigating to the project folder, you can link it globally.
-```bash
-npm link
-# You can now run the app from any directory
-ncea
-```
+### Search
 
-## CLI Options
+Type a subject, standard ID, or keyword into the search bar and press **Search** or hit Enter. The app returns ranked matching standards — click one to proceed to paper selection.
 
-- `-s, --search <query>`: Smart search by subject, title, or keywords.
-- `-p, --path <path>`: Override the download destination.
-- `-r, --refresh`: Bypass cached manifest data and refresh from sources.
-- `--source <source>`: Force a source for the current session.
-- `--clear-cache`: Delete cached adapter data in `~/.ncea-cli-cache`.
-- `--clear-manifest-index`: Delete manifest/index data in `~/.ncea-cli`.
-- `-y, --yes`: Skip confirmation prompts for destructive actions.
+### Paper Selection
 
-Example:
+After selecting a standard the app fetches all available papers and displays them in a table grouped by year. Check the papers you want and click **Download**.
 
-```bash
-node src/main.js --search "L3 complex numbers" --refresh --path ./downloads
-```
+- Use **Select All** to select every available paper for that standard.
+- The duplicate detection prompt will warn you if a file already exists on disk.
 
-## Interactive Flow
+### Download
 
-1. Choose an action.
-- Smart search.
-- Configure settings.
-- Exit.
+Downloads run in the background. Active and completed downloads are shown in the downloads panel. Completed downloads show an **Open Folder** button to jump straight to the file.
 
-2. Search results.
-- The app returns ranked matching standards.
-- You choose a standard from a select menu.
-- You can choose Back to return to the main menu.
+### Settings
 
-3. Standard paper selection.
-- The app fetches papers for the selected standard.
-- You choose one or more year or item entries.
-- You choose one or more paper types per entry.
-- If multiple sources are available, source selection is handled automatically or via prompt.
+Open Settings via the gear icon in the top right.
 
-4. Download.
-- Selected papers are deduplicated by `sourceName|url`.
-- Downloads run with progress updates.
-- Failed downloads can be retried once.
+- **Download Folder** — where downloaded files are saved (defaults to your system Downloads folder).
+- **Favourite Source** — which source to prefer when multiple are available.
+- **Always Refresh Sources** — bypass cached data and fetch live from sources on every search.
+- **Clear Cache** — delete cached adapter data.
+- **Clear Manifest** — delete saved manifest metadata.
 
-## Search Behaviour
+## Data and Cache
 
-The search flow is fuzzy-first, but it does not ignore exact matches. If a result is a strong literal match, it can rank first alongside fuzzy matches. When the scorer is uncertain, the CLI warns you before you continue.
-
-The search flow also supports scholarship queries and common shorthand such as `schol` and `schl`.
-
-## Settings
-
-Settings are managed from the interactive Settings menu.
-
-These options mainly control where files are saved, whether the app should refresh its saved data, and which source it should prefer when more than one site has the same paper.
-
-Supported settings:
-
-- `default_download_path`: Where downloaded files are saved.
-- `always_refresh_sources`: Always check the source sites live instead of using saved data.
-- `auto_select_source`: Automatically pick the best source when more than one is available.
-- `default_source_override`: Always prefer one source unless you choose otherwise.
-- `favorite_source`: The source the app should try first.
-
-Source settings include:
-
-- Preferred source: the site the app should try first.
-- Auto-select source: whether the app should choose for you when possible.
-- Default source override: a hard preference for one source.
-
-## Data, Cache, and Manifest
-
-The app keeps a small amount of saved data on your computer so it can open faster and avoid downloading the same information repeatedly.
+The app stores a small amount of data locally to open faster and avoid redundant network requests.
 
 Cache path:
 
 - `~/.ncea-cli-cache`
 
-Saved data path:
+Manifest path:
 
 - `~/.ncea-cli`
 
-Clear commands:
-
-Use these if you want to force the app to rebuild its saved data from scratch.
-
-```bash
-node src/main.js --clear-cache -y
-node src/main.js --clear-manifest-index -y
-```
+These can be cleared from the Settings view.
 
 ## Adapter System
 
@@ -141,86 +80,35 @@ Current adapters:
 - `StudyTimeAdapter`
 - `NoBrainTooSmallAdapter`
 - `QuirkyAdapter`
-- `ToastingMeAdapter` when present in the source tree
 
-Base adapter contract:
-
-- [src/adapters/index.js](src/adapters/index.js)
-
-Add-a-new-adapter specification:
-
-- [ADDING_ADAPTER.md](ADDING_ADAPTER.md)
+For adding a new source adapter, see [ADDING_ADAPTER.md](ADDING_ADAPTER.md).
 
 ## Project Structure
 
-Main folders:
-
-- `src/adapters`: Source adapters.
-- `src/core`: Search, models, config, cache, downloader, and manifest.
-- `src/core/search`: Search helper modules.
-- `src/utils`: Prompt and utility helpers.
-- `tests`: Unit tests.
-- `seed`: Tools to generate `standards.json` (the source of truth for the system's known NCEA standards).
-
-### Seeding Baseline Data
-If the official NZQA standard titles or subject categorisation changes, you can rebuild the base standard catalogue natively by running:
-```bash
-node seed/seed.js
-```
-
-## Scripts
-
-From `package.json`:
-
-- `npm start`: Run the CLI.
-- `npm test`: Run the test suite.
-- `npm run bench:search`: Run the search benchmark script.
-- `npm run lint`: Lint `src/`.
-- `npm run lint:fix`: Lint and auto-fix `src/`.
-
-## Testing
-
-Run the test suite:
-
-```bash
-npm test
-```
-
-Current tests validate parsing and search ranking behaviour.
-
-## Developer Notes
-
-Main integration points when adding or changing a source:
-
-- `src/core/search.js`: adapter registration and fetch/index orchestration.
-- `src/core/constants.js`: source priority and constants.
-- `src/core/config.js`: validation for `favorite_source` and `default_source_override`.
-- `src/main.js`: settings menu source options.
-
-If you are not modifying the code, you can ignore this section.
+- `electron/adapters` — source adapters
+- `electron/core` — search, models, config, cache, downloader, and manifest
+- `electron/seed` — baseline standards catalogue (`standards.json`)
+- `src/` — React renderer (UI)
+- `src/views/` — page-level views
+- `src/components/` — shared UI components
 
 ## Troubleshooting
 
-If no results appear:
+**No results appear**
+- Try a different search term or standard ID.
+- Enable **Always Refresh Sources** in Settings and search again.
 
-- Retry with `--refresh`.
-- Verify the query has a valid subject or title token.
+**Source selection feels wrong**
+- Set a **Favourite Source** in Settings.
 
-If source selection feels wrong:
+**Downloads fail**
+- Check your internet connection.
+- Try switching the favourite source in Settings and downloading again.
 
-- Check `favorite_source` and `default_source_override` in settings.
-- Toggle `auto_select_source`.
-
-If downloads fail:
-
-- Retry failed downloads from the built-in prompt.
-- Switch source override and retry.
+**App shows no papers for a standard**
+- The standard may not be covered by any current adapter.
+- Try enabling **Always Refresh Sources** and retrying.
 
 ## Contributing
 
-Community contributions are welcome, particularly for new adapters as paper sources shift and change!
-
-1. Check existing Issues or open a new one prior to tackling major core modifications.
-2. If adding an adapter, read [ADDING_ADAPTER.md](ADDING_ADAPTER.md).
-3. Ensure you follow standard JavaScript style guidelines. Use `npm run lint` and `npm run lint:fix` to check your work. 
-4. Verify everything works with `npm test` before submitting your Pull Request.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) to get started. Community contributions are welcome, particularly new adapters as paper sources change over time.
