@@ -1,7 +1,7 @@
 {
   "name": "ncea-gui",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.0",
   "type": "module",
   "description": "Ever wanted to unify finding past papers?",
   "author": {
