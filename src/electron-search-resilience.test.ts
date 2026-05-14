@@ -28,7 +28,7 @@ describe("SearchAggregator exact lookup", () => {
 	it("times out a slow adapter and still returns the fast result", async () => {
 		vi.useFakeTimers();
 
-		const progressEvents = [];
+		const progressEvents: Array<any> = [];
 		const fastAdapter = {
 			name: "FastAdapter",
 			sourceName: "FastAdapter",
@@ -69,8 +69,8 @@ describe("SearchAggregator exact lookup", () => {
 			getByStandardId: () => [],
 			upsertPapers: vi.fn(),
 			ensureFile: vi.fn(),
-		};
-		aggregator.progressCallback = (event) => progressEvents.push(event);
+		} as any;
+		aggregator.progressCallback = (event: any) => progressEvents.push(event);
 
 		const searchPromise = aggregator.searchExactByStandardId("91606", {
 			refresh: true,
@@ -81,9 +81,67 @@ describe("SearchAggregator exact lookup", () => {
 
 		expect(result).toHaveLength(1);
 		expect(result[0].sourceName).toBe("FastAdapter");
-		expect(progressEvents.some((event) => event.timeout)).toBe(true);
-		expect(progressEvents.some((event) => event.adapter === "Slow Adapter")).toBe(true);
+		expect(progressEvents.some((event: any) => event.timeout)).toBe(true);
+		expect(progressEvents.some((event: any) => event.adapter === "Slow Adapter")).toBe(true);
 		expect(progressEvents.at(-1)?.completed).toBe(2);
+	});
+
+	it("falls back to adapter.name when sourceName is missing", async () => {
+		vi.useFakeTimers();
+
+		const progressEvents: Array<any> = [];
+		const fastAdapter = {
+			name: "FastAdapter",
+			async fetchByStandard() {
+				return [
+					{
+						standardId: "91606",
+						subject: "Mathematics",
+						title: "Fast result",
+						level: 1,
+						year: 2024,
+						format: "pdf",
+						url: "https://example.test/fast.pdf",
+						sourceName: "FastAdapter",
+						filename: "fast.pdf",
+						type: "exam",
+					},
+				];
+			},
+		};
+		const slowAdapter = {
+			name: "SlowAdapter",
+			async fetchByStandard() {
+				return new Promise(() => {});
+			},
+		};
+
+		const aggregator = new SearchAggregator();
+		aggregator.adapters = [fastAdapter, slowAdapter];
+		aggregator.adapterMetaByName = new Map([
+			[fastAdapter.name, { displayName: "Fast Adapter" }],
+			[slowAdapter.name, { displayName: "Slow Adapter" }],
+		]);
+		aggregator.manifestService = {
+			load: () => ({ generated: new Date().toISOString(), ttl_hours: 72, entries: {} }),
+			isStale: () => true,
+			getByStandardId: () => [],
+			upsertPapers: vi.fn(),
+			ensureFile: vi.fn(),
+		} as any;
+		aggregator.progressCallback = (event: any) => progressEvents.push(event);
+
+		const searchPromise = aggregator.searchExactByStandardId("91606", {
+			refresh: true,
+		});
+
+		await vi.advanceTimersByTimeAsync(8000);
+		const result = await searchPromise;
+
+		expect(result).toHaveLength(1);
+		expect(result[0].sourceName).toBe("FastAdapter");
+		expect(progressEvents.some((event: any) => event.timeout)).toBe(true);
+		expect(progressEvents.some((event: any) => event.adapter === "Slow Adapter")).toBe(true);
 	});
 });
 
@@ -165,14 +223,19 @@ describe("adapter cache retry behavior", () => {
 
 		expect(crawlSpy).toHaveBeenCalledTimes(1);
 		expect(result).toHaveLength(1);
-		expect(result[0].standardId).toBe("91606");
+		expect(result[0]?.standardId).toBe("91606");
 		expect(setSpy).toHaveBeenCalledTimes(1);
 	});
 });
 
 describe("seed search ranking", () => {
 	it("drops explicit subject alias noise before ranking", () => {
-		const standards = [
+		const standards: Array<{
+			standardId: string;
+			title: string;
+			subject: string;
+			level: number;
+		}> = [
 			{
 				standardId: "91001",
 				title: "Genetics",
@@ -194,7 +257,7 @@ describe("seed search ranking", () => {
 				subjectConfidence: "explicit",
 				level: null,
 			},
-			standards,
+			standards: standards as any,
 			limit: 2,
 		});
 
@@ -246,7 +309,7 @@ describe("adapter loader resilience", () => {
 			fsModule: {
 				readdirSync: () => dirents,
 			},
-			requireFn: (modulePath) => {
+			requireFn: (modulePath: string) => {
 				if (modulePath.endsWith("good.js")) {
 					return { GoodAdapter };
 				}
@@ -260,5 +323,62 @@ describe("adapter loader resilience", () => {
 		expect(adapters).toHaveLength(1);
 		expect(adapters[0].sourceName).toBe("DuplicateAdapter");
 		expect(adapters[0].displayName).toBe("Duplicate Adapter 2");
+	});
+
+	it("discovers built-in adapters with non-empty names", async () => {
+		const adapters = await discoverAdapters();
+
+		expect(adapters.length).toBeGreaterThan(0);
+		for (const entry of adapters) {
+			expect(typeof entry.adapter.name).toBe("string");
+			expect(entry.adapter.name.trim()).not.toBe("");
+			expect(entry.sourceName).toBe(entry.adapter.name);
+		}
+	});
+
+	it("skips adapters with blank instance names during discovery", async () => {
+		class GoodAdapter extends PaperSourceAdapter {
+			static sourceName = "GoodAdapter";
+
+			async fetchByStandard() {
+				return [];
+			}
+		}
+
+		class BlankNameAdapter extends PaperSourceAdapter {
+			static sourceName = "BlankNameAdapter";
+
+			constructor() {
+				super();
+				this.name = "";
+			}
+
+			async fetchByStandard() {
+				return [];
+			}
+		}
+
+		const discovered = await discoverAdapters({
+			adaptersDir: "C:/fake/adapters",
+			fsModule: {
+				readdirSync: () => [
+					{ isFile: () => true, name: "good.js" },
+					{ isFile: () => true, name: "blank.js" },
+					{ isFile: () => true, name: "loader.js" },
+					{ isFile: () => true, name: "index.js" },
+				],
+			},
+			requireFn: (modulePath: string) => {
+				if (modulePath.endsWith("good.js")) {
+					return { GoodAdapter };
+				}
+				if (modulePath.endsWith("blank.js")) {
+					return { BlankNameAdapter };
+				}
+				throw new Error("Unexpected module path");
+			},
+		});
+
+		expect(discovered.map((entry) => entry.sourceName)).toEqual(["GoodAdapter"]);
 	});
 });

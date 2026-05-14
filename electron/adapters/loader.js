@@ -18,10 +18,17 @@ function isAdapter(c) {
 
 function toEntry(AdapterClass) {
 	const adapter = new AdapterClass();
+	const instanceName = String(adapter.name || "").trim();
+	if (!instanceName) {
+		throw new Error(
+			`Adapter ${AdapterClass.name} must have a non-empty instance name. ` +
+				`Either define static sourceName or ensure super() is called in constructor.`
+		);
+	}
 	return {
 		adapter,
-		sourceName: String(adapter.name || AdapterClass.name),
-		displayName: AdapterClass.displayName ?? adapter.name ?? AdapterClass.name,
+		sourceName: instanceName,
+		displayName: AdapterClass.displayName ?? instanceName ?? AdapterClass.name,
 		fileName: "<builtin>",
 	};
 }
@@ -60,14 +67,24 @@ async function discoverAdaptersDev({
 			for (const AdapterClass of Object.values(mod).filter(isAdapter)) {
 				try {
 					const adapter = new AdapterClass();
-					const sourceName = String(adapter.name || AdapterClass.name || fileName);
+					const instanceName = String(adapter.name || "").trim();
+					if (!instanceName) {
+						console.warn(
+							`[AdapterLoader] Skipping ${fileName}: adapter must have a name. ` +
+								`Define static sourceName or ensure super() is called.`
+						);
+						continue;
+					}
 					discovered.push({
 						adapter,
-						sourceName,
-						displayName: AdapterClass.displayName || adapter.name || sourceName,
+						sourceName: instanceName,
+						displayName: AdapterClass.displayName || instanceName,
 						fileName,
 					});
-				} catch {
+				} catch (err) {
+					console.warn(
+						`[AdapterLoader] Failed to load adapter from ${fileName}: ${String(err)}`
+					);
 					continue;
 				}
 			}

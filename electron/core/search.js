@@ -256,7 +256,10 @@ export class SearchAggregator {
 								completed: index + 1,
 								total: activeAdapters.length,
 								adapter:
-									this.adapterMetaByName.get(adapter.sourceName)?.displayName ||
+									this.adapterMetaByName.get(adapter.name || adapter.sourceName)
+										?.displayName ||
+									adapter.name ||
+									adapter.constructor?.name ||
 									adapter.sourceName,
 								timeout: true,
 								message: `Exact lookup timed out after ${EXACT_LOOKUP_ADAPTER_TIMEOUT_MS}ms`,
@@ -270,7 +273,10 @@ export class SearchAggregator {
 								completed: index + 1,
 								total: activeAdapters.length,
 								adapter:
-									this.adapterMetaByName.get(adapter.sourceName)?.displayName ||
+									this.adapterMetaByName.get(adapter.name || adapter.sourceName)
+										?.displayName ||
+									adapter.name ||
+									adapter.constructor?.name ||
 									adapter.sourceName,
 							});
 						}
@@ -287,7 +293,10 @@ export class SearchAggregator {
 								completed: index + 1,
 								total: activeAdapters.length,
 								adapter:
-									this.adapterMetaByName.get(adapter.sourceName)?.displayName ||
+									this.adapterMetaByName.get(adapter.name || adapter.sourceName)
+										?.displayName ||
+									adapter.name ||
+									adapter.constructor?.name ||
 									adapter.sourceName,
 								error: true,
 								message,
