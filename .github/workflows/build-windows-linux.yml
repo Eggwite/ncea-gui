@@ -19,12 +19,18 @@ jobs:
       - name: Get tag
         id: tag
         run: echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
-      - name: Set package.json version from tag
+      - name: Show package.json before
+        run: Get-Content package.json
+        shell: powershell
+      - name: Set package.json version from tag (debug)
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          $tag = "${{ steps.tag.outputs.tag }}"
+          $tag = "${{ github.ref }}".Split('/')[-1]
           $ver = $tag.TrimStart('v')
-          npm version $ver --no-git-tag-version
+          Write-Host "Computed version: $ver"
+          npm pkg set version $ver
+          Write-Host "package.json after set:" 
+          Get-Content package.json
         shell: powershell
       - run: npm ci
       - run: npm run build:win
@@ -56,12 +62,17 @@ jobs:
       - name: Get tag
         id: tag
         run: echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
-      - name: Set package.json version from tag
+      - name: Show package.json before
+        run: cat package.json
+      - name: Set package.json version from tag (debug)
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          TAG=${{ steps.tag.outputs.tag }}
+          TAG=${GITHUB_REF#refs/tags/}
           VER=${TAG#v}
-          npm version "$VER" --no-git-tag-version
+          echo "Computed version: $VER"
+          npm pkg set version "$VER"
+          echo "package.json after set:"
+          cat package.json
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
