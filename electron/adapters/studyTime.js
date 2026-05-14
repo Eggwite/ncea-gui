@@ -29,11 +29,16 @@ export class StudyTimeAdapter extends PaperSourceAdapter {
 		const id = normaliseStandardId(standardId);
 		if (!id) return [];
 
-		const cached = await CacheService.getOrSet(
-			CACHE_KEY,
-			INDEX_CACHE_TTL_MS,
-			() => this._crawlAll()
-		);
+		// Do not cache empty crawl results. Temporary DNS/network failures should
+		// retry on later lookups instead of being sticky for the full TTL.
+		let cached = CacheService.get(CACHE_KEY, INDEX_CACHE_TTL_MS);
+		if (!Array.isArray(cached) || cached.length === 0) {
+			const fresh = await this._crawlAll();
+			cached = Array.isArray(fresh) ? fresh : [];
+			if (cached.length > 0) {
+				CacheService.set(CACHE_KEY, cached);
+			}
+		}
 
 		return cached
 			.filter((paper) => normaliseStandardId(paper.standardId) === id)
@@ -136,8 +141,9 @@ export class StudyTimeAdapter extends PaperSourceAdapter {
 			await Promise.all(fetchPromises);
 			return papers;
 		} catch (err) {
-			console.error(`Failed to build StudyTime index: ${err.message}`);
-			return [];
+			const message = err?.message || String(err || "Unknown StudyTime error");
+			console.error(`Failed to build StudyTime index: ${message}`);
+			throw new Error(`Failed to build StudyTime index: ${message}`);
 		}
 	}
 }

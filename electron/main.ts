@@ -206,15 +206,20 @@ ipcMain.handle('clear-manifest', async () => {
   }
 })
 
-ipcMain.handle('get-papers', async (event, standardId: string) => {
+ipcMain.handle('get-papers', async (event, standardId: string, forceRefresh?: boolean) => {
   // Set up progress callback to send updates to renderer
   aggregator.progressCallback = (progress: any) => {
+    if (progress?.timeout || progress?.error) {
+      console.warn(
+        `[IPC:get-papers] standard=${standardId} adapter=${String(progress?.adapter || 'unknown')} timeout=${Boolean(progress?.timeout)} error=${Boolean(progress?.error)} message=${String(progress?.message || '')}`,
+      )
+    }
     event.sender.send('papers-progress', progress)
   }
   
   try {
     const papers = await aggregator.searchExactByStandardId(standardId, {
-      refresh: Boolean(config.get('always_refresh_sources'))
+      refresh: Boolean(forceRefresh) || Boolean(config.get('always_refresh_sources'))
     })
     return aggregator.groupResults(papers)
   } finally {

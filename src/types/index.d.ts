@@ -25,4 +25,6 @@ export interface PapersProgress {
   total: number;
   adapter?: string;
   error?: boolean;
+  timeout?: boolean;
+  message?: string;
 }

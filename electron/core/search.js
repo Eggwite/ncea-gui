@@ -37,7 +37,7 @@ async function fetchWithTimeout(factory, timeoutMs, onTimeout) {
 	try {
 		return await Promise.race([Promise.resolve().then(factory), timeoutPromise]);
 	} finally {
-		return clearTimeout(timeoutId);
+		clearTimeout(timeoutId);
 	}
 }
 
@@ -236,11 +236,6 @@ export class SearchAggregator {
 		const id = normaliseStandardId(standardId);
 		if (!id) return [];
 
-		// Reuse the last exact lookup unless the caller explicitly asks for fresh source data.
-		if (!refresh && this.standardResultsMemo.has(id)) {
-			return this.standardResultsMemo.get(id);
-		}
-
 		let results = [];
 		const manifest = this.manifestService.load();
 
@@ -253,14 +248,29 @@ export class SearchAggregator {
 		if (results.length === 0 || refresh) {
 			// Track progress as adapters complete; skip any adapters that failed health check
 			const activeAdapters = this.getActiveAdapters();
+			let timedOut = false;
 			const adapterFetches = activeAdapters.map((adapter, index) =>
 				fetchWithTimeout(
 					() => adapter.fetchByStandard(id),
 					EXACT_LOOKUP_ADAPTER_TIMEOUT_MS,
 					() => {
+						// Mark that at least one adapter timed out for this lookup
+						timedOut = true;
 						console.warn(
 							`[${adapter.name}] Exact lookup timed out after ${EXACT_LOOKUP_ADAPTER_TIMEOUT_MS}ms`
 						);
+						// Notify UI about the timeout via progress callback so renderer can show feedback
+						if (this.progressCallback) {
+							this.progressCallback({
+								completed: index + 1,
+								total: activeAdapters.length,
+								adapter:
+									this.adapterMetaByName.get(adapter.sourceName)?.displayName ||
+									adapter.sourceName,
+								timeout: true,
+								message: `Exact lookup timed out after ${EXACT_LOOKUP_ADAPTER_TIMEOUT_MS}ms`,
+							});
+						}
 					}
 				).then(
 					(result) => {
@@ -276,6 +286,11 @@ export class SearchAggregator {
 						return result;
 					},
 					(error) => {
+						const message =
+							error && typeof error.message === "string"
+								? error.message
+								: String(error || "Unknown adapter error");
+						console.warn(`[${adapter.name}] Exact lookup failed: ${message}`);
 						if (this.progressCallback) {
 							this.progressCallback({
 								completed: index + 1,
@@ -284,6 +299,7 @@ export class SearchAggregator {
 									this.adapterMetaByName.get(adapter.sourceName)?.displayName ||
 									adapter.sourceName,
 								error: true,
+								message,
 							});
 						}
 						throw error;
@@ -302,10 +318,8 @@ export class SearchAggregator {
 			}
 		}
 
-		if (!refresh) {
-			this.standardResultsMemo.set(id, results);
-		}
-
+		// Only use manifest for caching (which has TTL).
+		// Don't memoize individual lookups to allow retries of failed adapters.
 		return results;
 	}
 
