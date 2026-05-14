@@ -15,10 +15,10 @@ import {
 	vi,
 } from "vitest";
 
-import { CacheService } from "../electron/core/cache.js";
-import { OurExamsAdapter } from "../electron/adapters/ourExams.js";
-import { QuirkyAdapter } from "../electron/adapters/quirky.js";
-import { SearchAggregator } from "../electron/core/search.js";
+import { CacheService } from "./core/cache.js";
+import { OurExamsAdapter } from "./adapters/ourExams.js";
+import { QuirkyAdapter } from "./adapters/quirky.js";
+import { SearchAggregator } from "./core/search.js";
 
 const realAxiosGet = axios.get.bind(axios);
 const realAxiosHead = axios.head.bind(axios);

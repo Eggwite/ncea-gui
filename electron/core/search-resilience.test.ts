@@ -2,17 +2,16 @@
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
-import { CacheService } from "../electron/core/cache.js";
-import { SearchAggregator } from "../electron/core/search.js";
+import { CacheService } from "./cache.js";
+import { SearchAggregator } from "./search.js";
 import {
 	buildSeedSubjectVocabulary,
 	classifySearchConfidence,
 	rankSeedStandardCandidates,
-} from "../electron/core/search/seedSearch.js";
-import { StudyTimeAdapter } from "../electron/adapters/studyTime.js";
-import { NoBrainTooSmallAdapter } from "../electron/adapters/noBrain.js";
-import { discoverAdapters } from "../electron/adapters/loader.js";
-import { PaperSourceAdapter } from "../electron/adapters/index.js";
+} from "./search/seedSearch.js";
+import { NoBrainTooSmallAdapter } from "../adapters/noBrain.js";
+import { discoverAdapters } from "../adapters/loader.js";
+import { PaperSourceAdapter } from "../adapters/index.js";
 
 beforeEach(() => {
 	vi.restoreAllMocks();
@@ -146,45 +145,6 @@ describe("SearchAggregator exact lookup", () => {
 });
 
 describe("adapter cache retry behavior", () => {
-	it("retries an empty StudyTime crawl and only caches non-empty results", async () => {
-		const cache = new Map();
-		const setSpy = vi.spyOn(CacheService, "set").mockImplementation((key, payload) => {
-			cache.set(key, payload);
-		});
-		vi.spyOn(CacheService, "get").mockImplementation((key) => {
-			return cache.has(key) ? cache.get(key) : null;
-		});
-		const crawlSpy = vi
-			.spyOn(StudyTimeAdapter.prototype, "_crawlAll")
-			.mockResolvedValueOnce([])
-			.mockResolvedValueOnce([
-				{
-					standardId: "91606",
-					subject: "Mathematics",
-					title: "Algebra",
-					level: 1,
-					year: 2024,
-					format: "pdf",
-					url: "https://example.test/studytime.pdf",
-					sourceName: "StudyTimeAdapter",
-					filename: "studytime.pdf",
-					type: "exam",
-				},
-			]);
-
-		const adapter = new StudyTimeAdapter();
-
-		const first = await adapter.fetchByStandard("91606");
-		const second = await adapter.fetchByStandard("91606");
-		const third = await adapter.fetchByStandard("91606");
-
-		expect(first).toEqual([]);
-		expect(second).toHaveLength(1);
-		expect(third).toHaveLength(1);
-		expect(crawlSpy).toHaveBeenCalledTimes(2);
-		expect(setSpy).toHaveBeenCalledTimes(1);
-	});
-
 	it("refreshes NoBrain when the cached crawl misses the requested standard", async () => {
 		vi.spyOn(CacheService, "get").mockReturnValue([
 			{

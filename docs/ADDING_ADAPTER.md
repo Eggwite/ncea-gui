@@ -245,7 +245,7 @@ All adapters are automatically tested by the adapter validation suite. When you 
 
 ### What Gets Tested Automatically
 
-Your adapter is automatically validated by the search resilience test suite (`src/electron-search-resilience.test.ts`). At discovery time, the loader checks:
+Your adapter is automatically validated by the search resilience test suite (`electron/core/search-resilience.test.ts`). At discovery time, the loader checks:
 
 1. **Name** – Every adapter instance must have a non-empty `name`
 2. **Methods** – The adapter must implement `fetchByStandard()` or `buildIndex()`

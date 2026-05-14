@@ -78,6 +78,7 @@ export class StudyTimeAdapter extends PaperSourceAdapter {
 						timeout: HTTP_TIMEOUT_MS,
 					});
 					const $ = cheerio.load(subHtml);
+					let addedPapers = 0;
 
 					let currentStandardId = null;
 					let currentStandardTitle = null;
@@ -130,9 +131,14 @@ export class StudyTimeAdapter extends PaperSourceAdapter {
 									filename: `${currentStandardId}_${year || "unknown"}_${type}.pdf`,
 									type,
 								});
+								addedPapers += 1;
 							}
 						}
 					});
+
+					if (addedPapers > 0) {
+						CacheService.set(CACHE_KEY, papers);
+					}
 				} catch (e) {
 					// Ignore failures on individual pages
 				}
