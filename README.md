@@ -75,7 +75,7 @@ A desktop app for finding and downloading NCEA past papers built for students.
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+Contributions are welcome! See [CONTRIBUTING.md](./docs/CONTRIBUTING.md) to get started.
 
 ### Running GUI Tests
 
