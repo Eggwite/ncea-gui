@@ -28,7 +28,8 @@ jobs:
           $tag = "${{ github.ref }}".Split('/')[-1]
           $ver = $tag.TrimStart('v')
           Write-Host "Computed version: $ver"
-          npm pkg set version $ver
+          # npm pkg set expects key=value pairs (no space). Use quotes to ensure PowerShell passes a single arg.
+          npm pkg set "version=$ver"
           Write-Host "package.json after set:" 
           Get-Content package.json
         shell: powershell
@@ -70,7 +71,8 @@ jobs:
           TAG=${GITHUB_REF#refs/tags/}
           VER=${TAG#v}
           echo "Computed version: $VER"
-          npm pkg set version "$VER"
+          # npm pkg set expects key=value pairs (no space). Pass as a single argument.
+          npm pkg set "version=$VER"
           echo "package.json after set:"
           cat package.json
       - name: Install Linux dependencies
