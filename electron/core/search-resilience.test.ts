@@ -9,9 +9,30 @@ import {
 	classifySearchConfidence,
 	rankSeedStandardCandidates,
 } from "./search/seedSearch.js";
+import { ManifestService } from "./manifest.js";
 import { NoBrainTooSmallAdapter } from "../adapters/noBrain.js";
 import { discoverAdapters } from "../adapters/loader.js";
 import { PaperSourceAdapter } from "../adapters/index.js";
+
+type ProgressEvent = {
+	completed?: number;
+	total?: number;
+	adapter?: string;
+	error?: boolean;
+	timeout?: boolean;
+	message?: string;
+};
+
+type SearchPaperResult = {
+	sourceName: string;
+	standardId: string;
+};
+
+type DiscoveredAdapterEntry = {
+	adapter: { name: string };
+	sourceName: string;
+	displayName: string;
+};
 
 beforeEach(() => {
 	vi.restoreAllMocks();
@@ -27,11 +48,11 @@ describe("SearchAggregator exact lookup", () => {
 	it("times out a slow adapter and still returns the fast result", async () => {
 		vi.useFakeTimers();
 
-		const progressEvents: Array<any> = [];
+		const progressEvents: ProgressEvent[] = [];
 		const fastAdapter = {
 			name: "FastAdapter",
 			sourceName: "FastAdapter",
-			async fetchByStandard() {
+			fetchByStandard() {
 				return [
 					{
 						standardId: "91606",
@@ -51,7 +72,7 @@ describe("SearchAggregator exact lookup", () => {
 		const slowAdapter = {
 			name: "SlowAdapter",
 			sourceName: "SlowAdapter",
-			async fetchByStandard() {
+			fetchByStandard() {
 				return new Promise(() => {});
 			},
 		};
@@ -62,36 +83,40 @@ describe("SearchAggregator exact lookup", () => {
 			[fastAdapter.sourceName, { displayName: "Fast Adapter" }],
 			[slowAdapter.sourceName, { displayName: "Slow Adapter" }],
 		]);
-		aggregator.manifestService = {
-			load: () => ({ generated: new Date().toISOString(), ttl_hours: 72, entries: {} }),
-			isStale: () => true,
-			getByStandardId: () => [],
-			upsertPapers: vi.fn(),
-			ensureFile: vi.fn(),
-		} as any;
-		aggregator.progressCallback = (event: any) => progressEvents.push(event);
+		const manifestService = new ManifestService();
+		vi.spyOn(manifestService, "load").mockReturnValue({
+			generated: new Date().toISOString(),
+			ttl_hours: 72,
+			entries: {},
+		});
+		vi.spyOn(manifestService, "isStale").mockReturnValue(true);
+		vi.spyOn(manifestService, "getByStandardId").mockReturnValue([]);
+		vi.spyOn(manifestService, "upsertPapers").mockImplementation(() => {});
+		vi.spyOn(manifestService, "ensureFile").mockImplementation(() => {});
+		aggregator.manifestService = manifestService;
+		aggregator.progressCallback = (event: ProgressEvent) => progressEvents.push(event);
 
 		const searchPromise = aggregator.searchExactByStandardId("91606", {
 			refresh: true,
 		});
 
 		await vi.advanceTimersByTimeAsync(8000);
-		const result = await searchPromise;
+		const result = (await searchPromise) as SearchPaperResult[];
 
 		expect(result).toHaveLength(1);
 		expect(result[0].sourceName).toBe("FastAdapter");
-		expect(progressEvents.some((event: any) => event.timeout)).toBe(true);
-		expect(progressEvents.some((event: any) => event.adapter === "Slow Adapter")).toBe(true);
-		expect(progressEvents.at(-1)?.completed).toBe(2);
+		expect(progressEvents.some((event) => event.timeout)).toBe(true);
+		expect(progressEvents.some((event) => event.adapter === "Slow Adapter")).toBe(true);
+		expect(progressEvents[progressEvents.length - 1]?.completed).toBe(2);
 	});
 
 	it("falls back to adapter.name when sourceName is missing", async () => {
 		vi.useFakeTimers();
 
-		const progressEvents: Array<any> = [];
+		const progressEvents: ProgressEvent[] = [];
 		const fastAdapter = {
 			name: "FastAdapter",
-			async fetchByStandard() {
+			fetchByStandard() {
 				return [
 					{
 						standardId: "91606",
@@ -110,7 +135,7 @@ describe("SearchAggregator exact lookup", () => {
 		};
 		const slowAdapter = {
 			name: "SlowAdapter",
-			async fetchByStandard() {
+			fetchByStandard() {
 				return new Promise(() => {});
 			},
 		};
@@ -121,26 +146,30 @@ describe("SearchAggregator exact lookup", () => {
 			[fastAdapter.name, { displayName: "Fast Adapter" }],
 			[slowAdapter.name, { displayName: "Slow Adapter" }],
 		]);
-		aggregator.manifestService = {
-			load: () => ({ generated: new Date().toISOString(), ttl_hours: 72, entries: {} }),
-			isStale: () => true,
-			getByStandardId: () => [],
-			upsertPapers: vi.fn(),
-			ensureFile: vi.fn(),
-		} as any;
-		aggregator.progressCallback = (event: any) => progressEvents.push(event);
+		const manifestService = new ManifestService();
+		vi.spyOn(manifestService, "load").mockReturnValue({
+			generated: new Date().toISOString(),
+			ttl_hours: 72,
+			entries: {},
+		});
+		vi.spyOn(manifestService, "isStale").mockReturnValue(true);
+		vi.spyOn(manifestService, "getByStandardId").mockReturnValue([]);
+		vi.spyOn(manifestService, "upsertPapers").mockImplementation(() => {});
+		vi.spyOn(manifestService, "ensureFile").mockImplementation(() => {});
+		aggregator.manifestService = manifestService;
+		aggregator.progressCallback = (event: ProgressEvent) => progressEvents.push(event);
 
 		const searchPromise = aggregator.searchExactByStandardId("91606", {
 			refresh: true,
 		});
 
 		await vi.advanceTimersByTimeAsync(8000);
-		const result = await searchPromise;
+		const result = (await searchPromise) as SearchPaperResult[];
 
 		expect(result).toHaveLength(1);
 		expect(result[0].sourceName).toBe("FastAdapter");
-		expect(progressEvents.some((event: any) => event.timeout)).toBe(true);
-		expect(progressEvents.some((event: any) => event.adapter === "Slow Adapter")).toBe(true);
+		expect(progressEvents.some((event) => event.timeout)).toBe(true);
+		expect(progressEvents.some((event) => event.adapter === "Slow Adapter")).toBe(true);
 	});
 });
 
@@ -217,7 +246,7 @@ describe("seed search ranking", () => {
 				subjectConfidence: "explicit",
 				level: null,
 			},
-			standards: standards as any,
+			standards: standards as never[],
 			limit: 2,
 		});
 
@@ -286,7 +315,7 @@ describe("adapter loader resilience", () => {
 	});
 
 	it("discovers built-in adapters with non-empty names", async () => {
-		const adapters = await discoverAdapters();
+		const adapters = (await discoverAdapters()) as DiscoveredAdapterEntry[];
 
 		expect(adapters.length).toBeGreaterThan(0);
 		for (const entry of adapters) {
@@ -300,8 +329,8 @@ describe("adapter loader resilience", () => {
 		class GoodAdapter extends PaperSourceAdapter {
 			static sourceName = "GoodAdapter";
 
-			async fetchByStandard() {
-				return [];
+			fetchByStandard() {
+				return Promise.resolve([]);
 			}
 		}
 
@@ -313,8 +342,8 @@ describe("adapter loader resilience", () => {
 				this.name = "";
 			}
 
-			async fetchByStandard() {
-				return [];
+			fetchByStandard() {
+				return Promise.resolve([]);
 			}
 		}
 

@@ -19,16 +19,26 @@ import { CacheService } from "./core/cache.js";
 import { OurExamsAdapter } from "./adapters/ourExams.js";
 import { QuirkyAdapter } from "./adapters/quirky.js";
 import { SearchAggregator } from "./core/search.js";
+import { ManifestService } from "./core/manifest.js";
+
+type ProgressEvent = {
+	completed?: number;
+	total?: number;
+	adapter?: string;
+	error?: boolean;
+	timeout?: boolean;
+	message?: string;
+};
 
 const realAxiosGet = axios.get.bind(axios);
 const realAxiosHead = axios.head.bind(axios);
 
-let server;
+let server: http.Server | undefined;
 let baseUrl = "";
 let scenario = "steady";
-let requestCounts = new Map();
+let requestCounts = new Map<string, number>();
 
-function rewriteUrl(input) {
+function rewriteUrl(input: unknown) {
 	const url = String(input || "");
 	if (url === "https://www.ourexams.org/searchIndex.json") {
 		return `${baseUrl}/ourexams/searchIndex.json`;
@@ -42,7 +52,7 @@ function rewriteUrl(input) {
 	return url;
 }
 
-async function measureLatency(action) {
+async function measureLatency<T>(action: () => Promise<T> | T): Promise<{ value: T; ms: number }> {
 	const startedAt = performance.now();
 	const value = await action();
 	return {
@@ -51,14 +61,14 @@ async function measureLatency(action) {
 	};
 }
 
-function sendJson(res, statusCode, payload) {
+function sendJson(res: http.ServerResponse, statusCode: number, payload: unknown) {
 	res.writeHead(statusCode, {
 		"content-type": "application/json",
 	});
 	res.end(JSON.stringify(payload));
 }
 
-function sendText(res, statusCode, body) {
+function sendText(res: http.ServerResponse, statusCode: number, body: string) {
 	res.writeHead(statusCode, {
 		"content-type": "text/plain",
 	});
@@ -66,7 +76,7 @@ function sendText(res, statusCode, body) {
 }
 
 beforeAll(async () => {
-	server = http.createServer(async (req, res) => {
+	const testServer = http.createServer(async (req: http.IncomingMessage, res: http.ServerResponse) => {
 		const requestUrl = new URL(req.url || "/", "http://127.0.0.1");
 		const routeKey = `${req.method || "GET"} ${requestUrl.pathname}`;
 		const count = (requestCounts.get(routeKey) || 0) + 1;
@@ -131,10 +141,11 @@ beforeAll(async () => {
 
 		sendJson(res, 404, { error: `Missing fixture for ${routeKey}` });
 	});
+	server = testServer;
 
 	await new Promise((resolve) => {
-		server.listen(0, "127.0.0.1", () => {
-			const address = server.address();
+		testServer.listen(0, "127.0.0.1", () => {
+			const address = testServer.address();
 			if (!address || typeof address === "string") {
 				throw new Error("Test server failed to start");
 			}
@@ -146,7 +157,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
 	if (!server) return;
-	await new Promise((resolve) => server.close(() => resolve(null)));
+	const testServer = server;
+	await new Promise((resolve) => testServer.close(() => resolve(null)));
 });
 
 beforeEach(() => {
@@ -224,7 +236,7 @@ describe("adapter network benchmarks", () => {
 describe("search fault tolerance", () => {
 	it("returns good results when one adapter fails", async () => {
 		const aggregator = new SearchAggregator();
-		const progressEvents = [];
+		const progressEvents: ProgressEvent[] = [];
 		const goodAdapter = {
 			name: "GoodAdapter",
 			sourceName: "GoodAdapter",
@@ -260,14 +272,18 @@ describe("search fault tolerance", () => {
 			[goodAdapter.sourceName, { displayName: "Good Adapter" }],
 			[faultyAdapter.sourceName, { displayName: "Faulty Adapter" }],
 		]);
-		aggregator.manifestService = {
-			load: () => ({ generated: new Date().toISOString(), ttl_hours: 72, entries: {} }),
-			isStale: () => false,
-			getByStandardId: () => [],
-			upsertPapers: vi.fn(),
-			ensureFile: vi.fn(),
-		};
-		aggregator.progressCallback = (event) => progressEvents.push(event);
+		const manifestService = new ManifestService();
+		vi.spyOn(manifestService, "load").mockReturnValue({
+			generated: new Date().toISOString(),
+			ttl_hours: 72,
+			entries: {},
+		});
+		vi.spyOn(manifestService, "isStale").mockReturnValue(false);
+		vi.spyOn(manifestService, "getByStandardId").mockReturnValue([]);
+		vi.spyOn(manifestService, "upsertPapers").mockImplementation(() => {});
+		vi.spyOn(manifestService, "ensureFile").mockImplementation(() => {});
+		aggregator.manifestService = manifestService;
+		aggregator.progressCallback = (event: ProgressEvent) => progressEvents.push(event);
 
 		const results = await aggregator.searchExactByStandardId("91606", {
 			refresh: true,
