@@ -1,7 +1,7 @@
 # Download instructions
 
 > [!IMPORTANT]  
-> If your browser or operating system warns about the download, choose keep or download anyway *only if you trust this release.*\*
+> If your browser or operating system warns about the download, choose keep or download anyway *only if you trust this release.*
 
 - **Windows users**: download the Windows installer (.exe) `NCEA GUI-Windows-{version}-Setup.exe` 
 
