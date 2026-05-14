@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
 import axios from "axios";
-import Fuse from "fuse.js";
 
 import { discoverAdapters } from "../adapters/loader.js";
 import { config } from "./config.js";
@@ -13,13 +12,12 @@ import {
 import { parseQuery, normaliseStandardId, normaliseSubject } from "./models.js";
 import { normaliseLevelValue } from "./models.js";
 import { ManifestService } from "./manifest.js";
-import { buildSubjectAliases } from "./search/subjectAliases.js";
-import { cleanSearchText } from "./search/cleanSearchText.js";
-import {
-	scoreSearchTextMatch,
-	scoreSearchTokenMatch,
-} from "./search/tokenNormalise.js";
 import { prettifyTypeLabel } from "./search/typeLabels.js";
+import {
+	buildOfflineStandardGroups,
+	buildSeedSubjectVocabulary,
+	rankSeedStandardCandidates,
+} from "./search/seedSearch.js";
 
 // GUI searches can show a slightly larger shortlist without hurting ranking.
 const MAX_NON_EXACT_RESULT_GROUPS = 10;
@@ -39,13 +37,6 @@ async function fetchWithTimeout(factory, timeoutMs, onTimeout) {
 	} finally {
 		clearTimeout(timeoutId);
 	}
-}
-
-function classifySearchConfidence(score, gap) {
-	// These bands separate a clear winner from a near-tie in the offline ranker.
-	if (score >= 16 && gap >= 4) return "high";
-	if (score >= 10 && gap >= 2) return "medium";
-	return "low";
 }
 
 export class SearchAggregator {
@@ -491,187 +482,23 @@ export class SearchAggregator {
 		return this.seedStandardsCache;
 	}
 
-	buildSubjectAliases(subject) {
-		return buildSubjectAliases(subject);
-	}
-
 	getSeedSubjectVocabulary() {
 		if (this.seedSubjectVocabularyCache) {
 			return this.seedSubjectVocabularyCache;
 		}
-
-		const standards = this.loadSeedStandards().filter(Boolean);
-		const bySubject = new Map();
-
-		for (const row of standards) {
-			const subject = normaliseSubject(row.subject);
-			if (!subject || subject === "Unknown") continue;
-
-			if (!bySubject.has(subject)) {
-				bySubject.set(subject, {
-					subject,
-					aliases: new Set(),
-				});
-			}
-
-			const bucket = bySubject.get(subject);
-			for (const alias of this.buildSubjectAliases(row.subject)) {
-				bucket.aliases.add(alias);
-			}
-		}
-
-		this.seedSubjectVocabularyCache = [...bySubject.values()].map((entry) => ({
-			subject: entry.subject,
-			aliases: [...entry.aliases],
-		}));
+		this.seedSubjectVocabularyCache = buildSeedSubjectVocabulary(
+			this.loadSeedStandards().filter(Boolean)
+		);
 
 		return this.seedSubjectVocabularyCache;
 	}
 
 	rankSeedStandardCandidates(parsedQuery, limit = 3) {
-		const standards = this.loadSeedStandards().filter(
-			(row) => row && row.standardId
-		);
-		if (standards.length === 0) return [];
-
-		let filtered = standards;
-		if (parsedQuery.level) {
-			filtered = filtered.filter(
-				(row) =>
-					normaliseLevelValue(row.level) === normaliseLevelValue(parsedQuery.level)
-			);
-		}
-
-		if (parsedQuery.subject) {
-			const querySubject = normaliseSubject(parsedQuery.subject).toLowerCase();
-			const subjectMatched = filtered.filter((row) => {
-				const rowSubject = normaliseSubject(row.subject).toLowerCase();
-				return rowSubject === querySubject || rowSubject.includes(querySubject);
-			});
-			if (subjectMatched.length > 0) {
-				filtered = subjectMatched;
-			}
-		}
-
-		const searchQuery = cleanSearchText(parsedQuery.raw, parsedQuery.level);
-		const queryTerms = searchQuery.split(" ").filter(Boolean);
-		const subjectAliasTokens = parsedQuery.subject
-			? new Set(
-					this.buildSubjectAliases(parsedQuery.subject)
-						.flatMap((alias) => alias.split(/\s+/))
-						.map((token) => cleanSearchText(token).trim())
-						.filter(Boolean)
-				)
-			: new Set();
-		const rankingQueryTerms =
-			parsedQuery.subjectConfidence === "explicit"
-				? // If the subject is already explicit, drop terms that only restate it.
-					queryTerms.filter(
-						(token) =>
-							!Array.from(subjectAliasTokens).some(
-								(aliasToken) => scoreSearchTokenMatch(token, aliasToken) >= 8
-							)
-					)
-				: queryTerms;
-		const effectiveQueryTerms =
-			rankingQueryTerms.length > 0 ? rankingQueryTerms : queryTerms;
-
-		const scoreStandard = (row) => {
-			const titleText = cleanSearchText(row.shortTitle || row.title || "");
-			const subjectText = cleanSearchText(row.subject || "");
-			const titleScore = scoreSearchTextMatch(
-				effectiveQueryTerms,
-				titleText.split(" ")
-			);
-			const subjectScore = scoreSearchTextMatch(
-				effectiveQueryTerms,
-				subjectText.split(" ")
-			);
-			// Subject matches help, but they are capped so a weak subject hit does not
-			// outrank a much better title match.
-			// Subject text helps, but it is capped so it cannot overpower the title.
-			return titleScore + Math.min(subjectScore, 6);
-		};
-
-		if (!searchQuery) {
-			return filtered.slice(0, limit).map((row) => ({
-				standardId: String(row.standardId),
-				score: 0,
-				fuseScore: 1,
-				confidence: "low",
-			}));
-		}
-
-		const fuseCandidates = new Fuse(filtered, {
-			keys: ["standardId", "shortTitle", "title", "subject"],
-			// Subject-constrained queries can be tighter; free-text queries need a
-			// wider net because users often omit the exact title.
-			threshold: parsedQuery.subject ? 0.32 : 0.42,
-			ignoreLocation: true,
-			includeScore: true,
-		})
-			.search(searchQuery)
-			.sort((a, b) => {
-				const aScore = scoreStandard(a.item);
-				const bScore = scoreStandard(b.item);
-				if (aScore !== bScore) return bScore - aScore;
-				if ((a.score ?? 0) !== (b.score ?? 0))
-					return (a.score ?? 0) - (b.score ?? 0);
-				return String(a.item.standardId).localeCompare(String(b.item.standardId));
-			});
-
-		const candidates =
-			fuseCandidates.length > 0
-				? fuseCandidates
-				: filtered.map((item) => ({ item, score: 1 }));
-
-		const scored = candidates.map(({ item, score }) => ({
-			standardId: String(item.standardId),
-			item,
-			score: scoreStandard(item),
-			fuseScore: score ?? 1,
-		}));
-
-		scored.sort((a, b) => {
-			// Rank by our domain score first, then use Fuse and ID order as tie-breakers.
-			if (a.score !== b.score) return b.score - a.score;
-			if (a.fuseScore !== b.fuseScore) return a.fuseScore - b.fuseScore;
-			return a.standardId.localeCompare(b.standardId);
+		return rankSeedStandardCandidates({
+			parsedQuery,
+			standards: this.loadSeedStandards().filter((row) => row && row.standardId),
+			limit,
 		});
-
-		const dedupedEntries = [];
-		const seen = new Set();
-		for (const entry of scored) {
-			if (seen.has(entry.standardId)) continue;
-			seen.add(entry.standardId);
-			dedupedEntries.push(entry);
-		}
-
-		if (dedupedEntries.length > 0) {
-			// Confidence is based on the gap between the top two unique standards.
-			const topScore = dedupedEntries[0]?.score ?? 0;
-			const secondScore = dedupedEntries[1]?.score ?? 0;
-			const gap = topScore - secondScore;
-			const confidence = classifySearchConfidence(topScore, gap);
-			return dedupedEntries.slice(0, limit).map((entry) => ({
-				standardId: entry.standardId,
-				score: entry.score,
-				fuseScore: entry.fuseScore,
-				confidence,
-				matchGap: gap,
-			}));
-		}
-
-		if (parsedQuery.subject || parsedQuery.level) {
-			return filtered.slice(0, limit).map((row) => ({
-				standardId: String(row.standardId),
-				score: 0,
-				fuseScore: 1,
-				confidence: "low",
-			}));
-		}
-
-		return [];
 	}
 
 	rankSeedStandardIds(parsedQuery, limit = 3) {
@@ -681,43 +508,11 @@ export class SearchAggregator {
 	}
 
 	buildOfflineStandardGroups(standardIds) {
-		const byId = new Map(
-			this.loadSeedStandards().map((row) => [String(row.standardId), row])
-		);
-
-		return standardIds
-			.map((id) => {
-				const standardId = String(id?.standardId || id);
-				const row = byId.get(standardId);
-				if (!row) return null;
-				const matchScore = typeof id === "object" ? (id.score ?? null) : null;
-				const matchGap = typeof id === "object" ? (id.matchGap ?? null) : null;
-				const matchConfidence =
-					typeof id === "object" ? (id.confidence ?? null) : null;
-				const normalisedLevel = normaliseLevelValue(row.level);
-				const title = String(
-					row.shortTitle || row.title || `Standard ${standardId}`
-				);
-				const subject = normaliseSubject(row.subject);
-				return {
-					standardId,
-					level: normalisedLevel,
-					title,
-					subject,
-					credits: row.credits,
-					matchScore,
-					matchGap,
-					matchConfidence,
-					label: this.buildLabel({
-						standardId,
-						level: normalisedLevel,
-						title,
-						subject,
-					}),
-					entries: [],
-				};
-			})
-			.filter(Boolean);
+		return buildOfflineStandardGroups({
+			standardIds,
+			standards: this.loadSeedStandards(),
+			buildLabel: this.buildLabel.bind(this),
+		});
 	}
 
 	async search(rawQuery, options = {}) {
