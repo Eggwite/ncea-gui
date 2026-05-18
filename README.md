@@ -8,6 +8,8 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg)]()
 [![Releases](https://img.shields.io/github/v/release/Eggwite/ncea-gui)](../../releases/latest)
 
+[NCEA-GUI Website](https://ncea-gui.vercel.app/)
+
 <!-- TODO: add a demo GIF here -->
 <img width="804" height="533" alt="image" src="https://github.com/user-attachments/assets/1b3f68cf-bc39-4f3d-8cef-6ed8110608ac" />
 
@@ -22,13 +24,13 @@ A desktop app for finding and downloading NCEA past papers built for students.
 
 ### Windows
 
-1. Download **`NCEA GUI-Windows-Setup.exe`** from [Releases](../../releases/latest)
+1. Download **`NCEA GUI-Windows-{version}-Setup.exe`** from [Releases](../../releases/latest)
 2. Run the installer and follow the prompts
 3. Launch **NCEA GUI** from your desktop or Start Menu
 
 ### Linux
 
-1. Download **`NCEA GUI-Linux.AppImage`** from [Releases](../../releases/latest)
+1. Download **`NCEA GUI-Linux-{version}.AppImage`** from [Releases](../../releases/latest)
 2. Make it executable:
    ```bash
    chmod +x "NCEA GUI-Linux.AppImage"
@@ -77,19 +79,6 @@ A desktop app for finding and downloading NCEA past papers built for students.
 
 Contributions are welcome! See [CONTRIBUTING.md](./docs/CONTRIBUTING.md) to get started.
 
-### Running GUI Tests
-
-Use these before opening a PR to catch common frontend regressions:
-
-```bash
-npm test
-```
-
-Watch mode while developing:
-
-```bash
-npm run test:watch
-```
 
 ## License
 
