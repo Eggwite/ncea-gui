@@ -46,8 +46,6 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 
 Menu.setApplicationMenu(null)
 
-const supportsPublicUpdateService = process.platform === 'win32' || process.platform === 'darwin'
-
 
 let win: BrowserWindow | null
 
