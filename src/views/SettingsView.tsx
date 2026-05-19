@@ -1,10 +1,21 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
 } from "@/components/ui/input-group";
 import { Button } from "@/components/ui/Button";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
 	Card,
 	CardContent,
@@ -52,6 +63,9 @@ export default function SettingsView({
 		total: string;
 	} | null>(null);
 	const [latestVersion, setLatestVersion] = useState<string>(currentVersion);
+	const [maintenanceTarget, setMaintenanceTarget] = useState<
+		"cache" | "manifest" | null
+	>(null);
 
 	useEffect(() => {
 		// Initialize from parent config
@@ -89,20 +103,48 @@ export default function SettingsView({
 		}
 	};
 
-	const clearCache = async () => {
-		if (!confirm("Clear adapter cache?")) return;
-		await window.ncea.clearCache();
-		alert("Cache cleared");
-	};
+	const runMaintenanceAction = async () => {
+		if (maintenanceTarget === "cache") {
+			await window.ncea.clearCache();
+			toast.success("Cache cleared");
+		} else if (maintenanceTarget === "manifest") {
+			await window.ncea.clearManifest();
+			toast.success("Manifest cleared");
+		}
 
-	const clearManifest = async () => {
-		if (!confirm("Clear manifest metadata?")) return;
-		await window.ncea.clearManifest();
-		alert("Manifest cleared");
+		setMaintenanceTarget(null);
 	};
 
 	return (
 		<div className="space-y-6">
+			<AlertDialog
+				open={maintenanceTarget !== null}
+				onOpenChange={(open) => {
+					if (!open) setMaintenanceTarget(null);
+				}}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{maintenanceTarget === "cache"
+								? "Clear adapter cache?"
+								: "Clear manifest metadata?"}
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							{maintenanceTarget === "cache"
+								? "This removes cached source data and may make the next search slower."
+								: "This removes stored manifest metadata and will rebuild it when needed."}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction onClick={() => void runMaintenanceAction()}>
+							Continue
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
 			<div className="space-y-2">
 				<div className="flex items-center justify-between gap-3">
 					<div>
@@ -219,9 +261,7 @@ export default function SettingsView({
 								<Button
 									variant="destructive"
 									size="sm"
-									onClick={() => {
-										void clearCache();
-									}}
+									onClick={() => setMaintenanceTarget("cache")}
 									className="text-destructive hover:text-destructive hover:bg-destructive/10"
 								>
 									Clear Cache
@@ -231,9 +271,7 @@ export default function SettingsView({
 								<Button
 									variant="destructive"
 									size="sm"
-									onClick={() => {
-										void clearManifest();
-									}}
+									onClick={() => setMaintenanceTarget("manifest")}
 									className="text-destructive hover:text-destructive hover:bg-destructive/10"
 								>
 									Clear Manifest
